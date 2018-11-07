@@ -3737,7 +3737,6 @@ subroutine ChargeChange(iStage)
 
    laztm(1:natm) =.not.laz(ianatm(1:natm))  ! get trial charge states
 
-   if (lewald) then
       do ialoc = 1, natm
          ia = ianatm(ialoc)
          if (laztm(ialoc)) then
@@ -3746,7 +3745,6 @@ subroutine ChargeChange(iStage)
             aztm(ialoc) = Zero
          end if
       end do
-   end if
 
 if (itest == 90) then
    call writehead(3, txroutine, uout)
