@@ -2452,7 +2452,6 @@ try:  do itry = 1, ntry    ! loop over attempts to set the gel
                      npclend = npclend + 1
                      if (npclend > 2*sum(nstrand(1:ncoreshell(inwt)))) call stop(txroutine, 'npclend > 2*nstrand', uout)
                      ipclend(npclend) = ip
-                     maxnbondcl(iptpn(ip)) = 1
                   end if
                end do
             end do
