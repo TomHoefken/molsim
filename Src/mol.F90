@@ -203,7 +203,7 @@ module MolModule
 
 ! ... version, date and author
 
-   character(29) :: txVersionDate = 'version 6.4.7, v4.5.2'
+   character(29) :: txVersionDate = 'version 6.4.7, v4.5.1'
    character(9)  :: txAuthor      = 'Per Linse'
 
 ! ... external units
@@ -621,6 +621,11 @@ module MolModule
 !! **default:** `0`
 !! * Number of network types (only \ref txsetconf = 'network').
    integer(4)              :: nnwt         !*number of network types
+!> \page ncoreshell
+!! `integer`(1:\ref nnwt)
+!! **default:** \ref nnwt*`1`
+!! * number of core or shells in a network of network type `inwt`.
+   integer(4), allocatable :: ncoreshell(:)
 !> \page nct
 !! `integer`
 !! **default:** `0`
