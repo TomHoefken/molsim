@@ -1943,8 +1943,6 @@ subroutine GroupUser(iStage, m, txtype, lsetconf)
       call GroupNetworkGenerations(iStage, m)
    else if (txtype(m) == 'weakcharge') then
       call GroupWeakCharge(iStage, m)
-   else if (txtype(m) == 'charge') then
-      call GroupCharge(iStage, m)
    else
       lsetconf =.false.
    end if
@@ -2542,16 +2540,18 @@ subroutine GroupNetworkGenerations(iStage,m)
             call AssignChainGeneration(ic,0,igencn)
          end if
       end do
+      print *, igencn(0:nc)
 
       ! ... add 1 in order to account for the cross-links of the network as an own group
       ngr(m) = maxval(igencn(1:nc)) + 1
 
       ! ... Determine iptgr(igr,m)
-      do ict = 1, nct
-         if (inwtct(ict) == inwt) exit
-      end do
-      iptgr(1:ngr(m)-1,m) = iptpn(ipnsegcn(1,icnct(ict))) ! particle type constituting chains of network
+      do ic = 1, nc
+         if (inwtct(ictcn(ic)) /= inwt) cycle
+      iptgr(igencn(ic),m) = iptpn(ipnsegcn(1,ic)) ! particle type constituting chains of network
       iptgr(ngr(m),m) = iptclnwt(inwt) ! particle type constituting cross-links of network
+      end do
+      print *, iptgr(1:ngr(m),m)
 
       ! ... Determine grvar(igrpnt(m,igr))%label
       str = '      '
@@ -2637,103 +2637,6 @@ end subroutine SetNetworkGenerationPointer
 end subroutine GroupNetworkGenerations
 
 
-!**********************************************************************************
-!> \page moluser moluser.F90
-!! **GroupCharge**
-!! *group division according to the charges - counterions are in their own group*
-!**********************************************************************************
-
-subroutine GroupCharge(iStage,m)
-
-   use MolModule
-   implicit none
-
-   integer(4),    intent(in)     :: iStage
-   integer(4),    intent(in)     :: m
-
-   character(len=*), parameter   :: txroutine = 'GroupCharge'
-
-   character(len=9), parameter   :: txchargestate(2) = [ 'charged  ', 'uncharged' ]
-
-   integer(4), allocatable, save :: igrref(:,:) ! group reference for fast assignment of particles to groups
-
-   integer(4), allocatable, save:: iingroup(:)
-
-   integer(4)                    :: ichargestate, ip, ipt, igr, jpt
-
-   select case (iStage)
-
-   case (iReadInput)
-
-      if (.not.allocated(iingroup)) then
-         allocate(iingroup(npt))
-         iingroup = 0
-      end if
-
-      ngr(m) = 0
-      do ipt = 1, npt
-         if (ipt > 1) then
-            do jpt = 1, ipt - 1
-               if ( latweakcharge(ipt) == latweakcharge(jpt) .and. zat(ipt) == zat(jpt)) then
-                  iingroup(ipt) = jpt
-               else if ( any(jatweakcharge(1:npt) == ipt) .and. any(jatweakcharge(1:npt) == jpt) .and. zat(ipt) == zat(jpt)) then
-                  iingroup(ipt) = jpt
-               else if ( zat(jpt) == zat(ipt)) then
-                  iingroup(ipt) = jpt
-               end if
-            end do
-         end if
-         if (iingroup(ipt) /= 0) cycle
-         ngr(m) = merge(ngr(m)+2, ngr(m)+1, latweakcharge(ipt) .or. any(jatweakcharge(1:npt) == ipt))
-      end do
-
-      if (.not.allocated(igrref)) then
-         allocate(igrref(2,npt))
-         igrref = 0
-      end if
-
-   case (iWriteInput)
-
-      ! ... Determine iptgr(igr,m), grvar(igrpnt(m,igr))%label
-      igr = 0
-      do ipt = 1, npt
-         if (latweakcharge(ipt) .or. any(jatweakcharge(1:npt) == ipt)) then ! weak charge or counterion
-            do ichargestate = 1, 2
-               if (iingroup(ipt) /= 0) then
-                  igrref(ichargestate,ipt) = igrref(ichargestate, iingroup(ipt))
-               end if
-               if (iingroup(ipt) /= 0) cycle
-               igr = igr + 1
-               iptgr(igr,m) = ipt
-               grvar(igrpnt(m,igr))%label = trim(adjustl(txchargestate(ichargestate)))//' '//&
-                                           &trim(adjustl(txpt(ipt)))
-               igrref(ichargestate,ipt) = igr
-            end do
-         else ! no charge or fixed charge
-               if (iingroup(ipt) /= 0) then
-                  igrref(1:2,ipt) = igrref(1:2, iingroup(ipt))
-               end if
-               if (iingroup(ipt) /= 0) cycle
-            igr = igr + 1
-            iptgr(igr,m) = ipt
-            grvar(igrpnt(m,igr))%label = trim(adjustl(txpt(ipt)))
-            igrref(1:2,ipt) = igr
-         end if
-      end do
-
-   case (iSimulationStep)
-
-      igrpn(1:np,m) = 0
-      do ipt = 1, npt
-         do ip = ipnpt(ipt), ipnpt(ipt)+nppt(ipt)-1
-            igrpn(ip,m) = merge(igrref(1,ipt), igrref(2,ipt), laz(ip))
-            grvar(igrpnt(m,igrpn(ip,m)))%value = grvar(igrpnt(m,igrpn(ip,m)))%value + 1
-         end do
-      end do
-
-   end select
-
-end subroutine GroupCharge
 
 
 !************************************************************************
