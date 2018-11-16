@@ -2218,6 +2218,8 @@ subroutine SetPeriodicNetwork(ipt)
 
 end subroutine SetPeriodicNetwork
 
+
+
 !************************************************************************
 !> \page coordinate coordinate.F90
 !! **SetNetwork**
@@ -2421,6 +2423,69 @@ try:  do itry = 1, ntry    ! loop over attempts to set the gel
 end subroutine SetNetwork
 
 !........................................................................
+
+subroutine SetNetworkPos_new
+
+   use CoordinateModule
+   implicit none
+
+   integer(4), intent(out) :: nnode                   ! number of nodes
+   integer(4)              :: iploc                   ! local number of nodes
+   integer(4)              :: isym                    ! symmetry of node in the diamond lattice
+
+
+   nnode = 0
+   isym = 1
+   iploc = nnode + 1
+   ronode(1,iploc) = Zero
+   ronode(2,iploc) = Zero
+   ronode(3,iploc) = Zero
+
+   call GenerateNetworkPos(iploc, nnode, isym)
+
+
+
+
+contains
+
+   recursive subroutine GenerateNetworkPos(iploc, nnode, isym)
+
+   use CoordinateModule
+   implicit none
+
+   integer(4)        :: iploc
+   integer(4)        :: nnode
+   integer(4)        :: isym
+
+   integer(4)        :: idir
+
+
+   do idir =1, 4
+     if( ncsloc > 1 ) then
+         do icoreshell = 1, ncsloc
+            if (sum(ronode(1:3,iploc)**2) > (sum(radgel(1:icoreshell)))**2) cycle
+         end do
+      else
+         icoreshell = 1
+      end if
+      
+
+
+
+
+
+   end subroutine GenerateNetworkPos
+
+
+end subroutine SetNetworkPos_new
+
+
+
+
+
+
+
+
 
 subroutine SetNetworkPos(shiftxyz, radgel, bondlen, npstrand, nnode, ronodeout, nstrand, rostrandout, nclnode)
 
