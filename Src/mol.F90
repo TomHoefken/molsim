@@ -203,7 +203,7 @@ module MolModule
 
 ! ... version, date and author
 
-   character(29) :: txVersionDate = 'version 6.4.7, v4.5.1'
+   character(29) :: txVersionDate = 'version 6.4.7, v4.6.1'
    character(9)  :: txAuthor      = 'Per Linse'
 
 ! ... external units
@@ -847,6 +847,14 @@ module MolModule
    integer(4), allocatable :: nbondcl(:)   ! actual number of crosslinks to/from particle ip
    integer(4)    :: maxvalnbondcl          ! maxval(nbondcl(:))
    integer(4), allocatable :: bondcl(:,:)  ! crosslink and particle        -> crosslinked particle
+
+!> \page lreadbondcl
+!! `logical`
+!! **default:** `.true.`
+!! * `.true.`: Enable reading of cross-linking information from .cnf-file when \ref txstart='zero'
+!! * `.false.`: No reading of cross-linking information when \ref txstart='zero'
+   logical       :: lreadbondcl
+
 !> \page lmultigraft
 !! `logical`
 !! **default:** `.false.`
@@ -1104,7 +1112,7 @@ module MolModule
    logical                 :: lvlist       ! flag for neighbour lists
    integer(4), allocatable :: ipnploc(:)   ! particle (local) -> particle (1:np)
    integer(4), allocatable :: nneighpn(:)  ! particle (local) -> number of neighbours
-   integer(2), allocatable :: jpnlist(:,:) ! ineigh (local list) and ip (global or local) -> neigbour particle (1:np)
+   integer(4), allocatable :: jpnlist(:,:) ! ineigh (local list) and ip (global or local) -> neigbour particle (1:np)
    logical                 :: lllist       ! flag for linked lists
    logical   , allocatable :: lcellllist(:)! list of cells to be used for a position (local)
    integer(4), allocatable :: headllist(:) ! head of the linked list

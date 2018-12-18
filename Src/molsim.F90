@@ -885,7 +885,15 @@ subroutine IOCnf(str)
          read(ucnf) npread, iaux, raux, raux, laux, laux
          if (lmvt) np = npread
          read(ucnf) (ro(1:3,ip),qua(0:3,ip),ip = 1,np)
-         if (txstart == 'continue' .or. txstart == 'zero') then
+         if (txstart == 'zero') then
+            if (lclink) then
+               if (lreadbondcl) then
+                  read(ucnf) nbondcl(1:np), bondcl(1:maxvalnbondcl,1:np)
+               else
+                  read(ucnf) ivaux(1,1:np), (ivaux(1,1:maxvalnbondcl), ip = 1, np)
+               end if
+            end if
+         else if (txstart == 'continue') then
             if (lclink) read(ucnf) nbondcl(1:np), bondcl(1:maxvalnbondcl,1:np)
          end if
          if (lweakcharge) then
