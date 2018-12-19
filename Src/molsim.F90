@@ -2337,6 +2337,11 @@ subroutine NetworkAver(iStage)
       ! ... both stages, "IAfterMacrostep" and "IAfterSimulation".
 
       do inwt = 1, nnwt
+            print *, ntype
+         if (ncoreshell(inwt) > 1) then
+            ntype = merge(13,12,lweakcharge) ! ntype equals 12 only if lweakcharge, else ntype = 11
+            print *, ntype
+         end if
          ioffset = ntype*(inwt-1)
          var(1+ioffset)%label  = '<r(g)**2>**0.5                 = ' ! rms radius of gyration
          var(2+ioffset)%label  = '<r(g)**2_x>**0.5               = ' ! rms radius of gyration projection on the x-axis
@@ -2351,6 +2356,13 @@ subroutine NetworkAver(iStage)
          var(11+ioffset)%label = '<ztheta>                       = ' ! angle of axes of largest extension and z-axes of main frame
          if (lweakcharge) &
          var(12+ioffset)%label = '<alpha>                        = ' ! degree of ionization
+         if (ncoreshell(inwt) > 1) then
+            if (lweakcharge) then
+               var(13+ioffset)%label = '<r(g)_core**2>**0.5               = '
+            else
+               var(12+ioffset)%label =  '<r(g)_core**2>**0.5               = '
+            end if
+         end if
          var(1+ioffset:ntype+ioffset)%norm = One/nnwnwt(inwt)
      end do
 
@@ -2383,6 +2395,13 @@ subroutine NetworkAver(iStage)
          var(11+ioffset)%value = var(11+ioffset)%value + NetworkProperty%theta(3)
          if (lweakcharge) &
          var(12+ioffset)%value = var(12+ioffset)%value + NetworkProperty%alpha
+         if (ncoreshell(inwtnwn(inw)) > 1) then
+            if (lweakcharge) then
+               var(13+ioffset)%value = var(13+ioffset)%value + NetworkProperty%rg2_core
+            else
+               var(12+ioffset)%value = var(12+ioffset)%value + NetworkProperty%rg2_core
+            end if
+         end if
       end do
       call ScalarSample(iStage, 1, nvar, var)
 

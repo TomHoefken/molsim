@@ -1601,6 +1601,22 @@ subroutine CalcNetworkProperty(inw, NetworkProperty)
    NetworkProperty%rg2y = rg2y
    NetworkProperty%rg2z = rg2z
 
+
+! ... radius of gyration squared of core
+      if (ncoreshell(inwtnwn(inw)) > 1) then
+         !calculate center of mass
+         rcom(1:3) = CalcCOM(ro(1:3,1:np),MASK=lpnnwnc(1:np,inw),MASS=massp(1:np))
+         vsumr  = Zero
+         do iploc = 1, npnwt(inwt)
+            ip = ipnplocnwn(iploc,inw)
+            if (.not. lpnnwnc(ip,inw)) cycle
+            dr(1:3) = ro(1:3,ip)-rcom(1:3)
+            call PBCr2(dr(1),dr(2),dr(3),r2)
+            vsumr = vsumr + r2
+         end do
+         NetworkProperty%rg2_core = vsumr*massinwt(inwt)
+      end if
+
 ! ... normalized eigenvectors of the principal frame in descending order of the eigenvalues (due to Eigensort)
 
    call Diag(3,mimat,diagonal,eivr,nrot)

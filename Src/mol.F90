@@ -146,6 +146,7 @@ module MolModule
       real(8)    :: rg2l                    ! square extention along principal axes (largest)
       real(8)    :: rg2z                    ! radius of gyration squared projected on the z-axis
       real(8)    :: rg2xy                   ! radius of gyration squared projected on the xy-plane
+      real(8)    :: rg2_core                ! radius of gyration squared of the core in a core-shell system
       real(8)    :: lpree                   ! persistence length based on end-to-end separation
       real(8)    :: lprg                    ! persistence length based on radius of gyration
       real(8)    :: shape                   ! square end-to-end distance / square of radius of gyration
@@ -168,6 +169,7 @@ module MolModule
       real(8)    :: theta(3)                ! angles of axes of largest extension and x-, y-, and z-axes of main frame
       real(8)    :: asph                    ! asphericity (JCP 100, 636 (1994))
       real(8)    :: alpha                   ! degree of ionization (for titrating systems)
+      real(8)    :: rg2_core                ! radius of gyration squared of core
    end type networkprop_var
 
 ! ... data structure for simple averaging: These are documented in the manual in Chapter 7 (file datastructures.md)
@@ -848,6 +850,13 @@ module MolModule
    integer(4)    :: maxvalnbondcl          ! maxval(nbondcl(:))
    integer(4), allocatable :: bondcl(:,:)  ! crosslink and particle        -> crosslinked particle
 
+
+!> \page ictcsnwt
+!! `integer` (1:\ref ncoreshell , 1:\ref nnwt )
+!! **default:** 1*nnwt*`0`
+!! * chain type in a layer of a network of network type inwt (only \ref txsetconf = 'network').
+   integer(4),   allocatable :: ictcsnwt(:,:)
+
 !> \page lreadbondcl
 !! `logical`
 !! **default:** `.true.`
@@ -945,6 +954,7 @@ module MolModule
    logical                 :: lnetwork           ! flag for networks
    logical   , allocatable :: lptnwt(:,:)        ! true, if particle type ipt is part of network type inwt [allocate with npt,nnwt]
    logical   , allocatable :: lpnnwn(:,:)        ! true if particle number ip is part of network number inw
+   logical   , allocatable :: lpnnwnc(:,:)        ! true if particle number ip is part of network number inw and in the core
    integer(4), allocatable :: npweakchargenwt(:) ! number of titratable beads in network type inwt [allocate with nnwt]
 !> \page iptclnwt
 !! `integer`(1:\ref nnwt)

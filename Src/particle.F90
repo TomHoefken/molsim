@@ -864,6 +864,7 @@ subroutine SetObjectParam1
       call Set_ipncllocnwn! cross-link (1:nclnwt) and network (1:nnw)    -> its particle (1:np)
       call Set_ipnplocnwn ! local particle (1:npnwt) and network (1:nnw) -> its particle (1:np)
       call Set_lpnnwn     ! particle (1:np) part of network (1:nnw)?
+      call Set_lpnnwnc     ! particle (1:np) part of network (1:nnw)?
    end if
 
    if (lhierarchical) then
@@ -1887,6 +1888,35 @@ end subroutine Set_lpnnwn
 
 !........................................................................
 
+subroutine Set_lpnnwnc ! particle part of network?
+   if (.not.allocated(lpnnwnc)) then
+      allocate(lpnnwnc(np,nnw))
+      lpnnwnc = .false.
+      if(.not.allocated(ncoreshell)) then
+         allocate(ncoreshell(nnwt))
+      end if
+   end if
+   do inw = 1, nnw
+      if (ncoreshell(inwtnwn(inw)) > 1) then
+         do ip = 1, np
+            if (icnpn(ip) > 0) then
+               if (ictpn(ip) == ictcsnwt(1,inwtnwn(inw))) then
+               lpnnwnc(ip,inw) =.true.
+               end if
+            end if
+         end do
+         inwt = inwtnwn(inw)
+         do iclloc = 1, nclnwt(inwt)
+            ip = ipncllocnwn(iclloc,inw)
+            if (all(ictpt(iptpn(bondcl(1:4,ip))) == ictcsnwt(1,inwtnwn(inw)))) then
+               lpnnwnc(ip,inw) =.true.
+            end if
+         end do
+      end if
+   end do
+end subroutine Set_lpnnwnc
+
+!........................................................................
 subroutine Set_ipnhn  ! hierarchical strcture -> its first particle
    ! get particle with lowest number in hierarchical strucutre
    ipnhn = minval(ipnsegcn(1,icnct(ictgen(0:ngen))))
