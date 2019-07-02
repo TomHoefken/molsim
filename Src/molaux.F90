@@ -183,6 +183,53 @@ subroutine PBCr2(dx,dy,dz,r2)
 
 end subroutine PBCr2
 
+
+!************************************************************************
+!> \page molaux molaux.F90
+!! **PBCr2_cuda**
+!! *apply periodic boundary conditions and calculate r**2*
+!************************************************************************
+
+
+attributes(global) subroutine PBCr2_cuda(dx,dy,dz,r2,boxlen,boxlen2,lPBC,lbcbox,lbcrd,lbcto)
+
+   implicit none
+
+   real(8), intent(inout) :: dx, dy, dz
+   real(8), intent(out) :: r2
+   real(8), intent(in) :: boxlen, boxlen2
+   logical, intent(in) :: lPBC, lbcbox, lbcrd, lbcto
+
+
+   if (lPBC) then                                                              ! periodic boundary condition
+      if (lbcbox) then                                                         ! box-like cell
+         if (abs(dx) > boxlen2(1)) dx = dx - sign(dpbc(1),dx)
+         if (abs(dy) > boxlen2(2)) dy = dy - sign(dpbc(2),dy)
+         if (abs(dz) > boxlen2(3)) dz = dz - sign(dpbc(3),dz)
+      else if (lbcrd) then                                                     ! rhombic dodecahedral cell
+         if (abs(dx) > boxlen2(1)) dx = dx - sign(boxlen(1),dx)
+         if (abs(dy) > boxlen2(2)) dy = dy - sign(boxlen(2),dy)
+         if (abs(dz) > boxlen2(3)) dz = dz - sign(boxlen(3),dz)
+         if (abs(dx) + abs(dy) + SqTwo*abs(dz) > boxlen(1)) then
+            dx = dx - sign(boxlen2(1),dx)
+            dy = dy - sign(boxlen2(2),dy)
+            dz = dz - sign(boxlen2(3),dz)
+         end if
+      else if (lbcto) then                                                     ! truncated octahedral cell
+         if (abs(dx) > boxlen2(1)) dx = dx - sign(boxlen(1),dx)
+         if (abs(dy) > boxlen2(2)) dy = dy - sign(boxlen(2),dy)
+         if (abs(dz) > boxlen2(3)) dz = dz - sign(boxlen(3),dz)
+         if (abs(dx) + abs(dy) + abs(dz) > ThreeHalf*boxlen2(1)) then
+            dx = dx - sign(boxlen2(1),dx)
+            dy = dy - sign(boxlen2(2),dy)
+            dz = dz - sign(boxlen2(3),dz)
+         end if
+      end if
+   end if
+   r2 = dx**2+dy**2+dz**2
+
+end subroutine PBCr2_cuda
+
 !************************************************************************
 !> \page molaux molaux.F90
 !! **PBC2**
