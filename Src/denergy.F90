@@ -320,7 +320,7 @@ subroutine UTwoBodyANew(lhsoverlap,jp)
          dx = rotm(1,iploc)-ro(1,jp)
          dy = rotm(2,iploc)-ro(2,jp)
          dz = rotm(3,iploc)-ro(3,jp)
-         call PBCr2(dx,dy,dz,r2)
+         call PBCr2_cuda<<<1,512>>>(dx,dy,dz,r2,boxlen,boxlen2,lPBC,lbcbox,lbcrd,lbcto)
          if (lellipsoid) Then
             if (EllipsoidOverlap(r2,[dx,dy,dz],oritm(1,1,iploc),ori(1,1,jp),radellipsoid2,aellipsoid)) goto 400
          end if
