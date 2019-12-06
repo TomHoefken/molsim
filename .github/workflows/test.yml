@@ -11,12 +11,10 @@ jobs:
     - uses: actions/checkout@v1
     - name: Run a one-line script
       run: |
-         apt-get update
-         apt-get upgrade -y
-         apt-get install -y git gfortran fftw3-dev locate make
-         updatedb
+         tar xzf l_cprof_p_11.1.056.tgz
+         ls
          cd Testin
-         make out
+         #make out
       shell: bash
     - name: Run a multi-line script
       run: |
