@@ -11,6 +11,10 @@ jobs:
     - uses: actions/checkout@v1
     - name: Run a one-line script
       run: |
+         apt-get update
+         apt-get upgrade -y
+         apt-get install -y git gfortran fftw3-dev locate make
+         updatedb
          cd Testin
          make out
       shell: bash
