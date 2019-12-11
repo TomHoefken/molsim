@@ -103,7 +103,7 @@ done
 if [ "$FC" = "gfortran" ]; then
    echo "ARCH = LOCAL_GFORTRAN" > Src/make.arch
 elif [ "$FC" = "pgfortran" ]; then
-   echo "ARCH = LOCAL_PGFORTRAN" > Src/make.arch
+   echo "ARCH = PGFORTRAN" > Src/make.arch
 elif [ "$FC" = "ifort" ]; then
    echo "ARCH = LOCAL_INTEL" > Src/make.arch
 else
