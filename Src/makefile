@@ -35,6 +35,7 @@ BINDIR:=$(abspath ../Bin)
 
 ARCH = LOCAL_INTEL
 #ARCH = LOCAL_GFORTRAN
+#ARCH = PGFORTRAN
 #ARCH = ALARIK_INTEL
 #ARCH = ALARIK_GFORTRAN
 #ARCH = MAC_GFORTRAN
@@ -209,6 +210,66 @@ ifeq ($(ARCH), LOCAL_GFORTRAN)
 
 endif
 
+#------------------
+#     PGFORTRAN
+#------------------
+
+
+ifeq ($(ARCH), PGFORTRAN)
+
+  COMP_SER = pgfortran
+  LINK_SER = $(COMP_SER)
+  OPT_SER  = -O3 -acc -ta=tesla,cc70
+
+  OPT_format := -acc -ta=tesla,cc70 -Mbackslash
+  OPT_normal := $(OPT_format) -O3
+  # quick compilation:
+  OPT_quick  := $(OPT_format) -O0
+  OPT_test   := $(OPT_normal)
+  # provide useful info at exceptions (use for debug):
+  OPT_debug  := $(OPT_format) -g -Minfo
+  # provides many warnings:
+  OPT_warn   := $(OPT_format) -O0
+  # time the execution
+  OPT_gprof  := $(OPT_format) -O0
+
+  mode = normal
+  ifeq ($(mode),normal)
+    OPT_SER = $(OPT_normal)
+  endif
+  ifeq ($(mode),test)
+    OPT_SER = $(OPT_test)
+  endif
+  ifeq ($(mode),debug)
+    OPT_SER = $(OPT_debug)
+  endif
+  ifeq ($(mode),quick)
+    OPT_SER = $(OPT_quick)
+  endif
+  ifeq ($(mode),warn)
+    OPT_SER = $(OPT_warn)
+  endif
+  ifeq ($(mode),gprof)
+    OPT_SER = $(OPT_gprof)
+  endif
+  LLIB =
+
+  GCCVERSIONLTEQ4 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \<= 4)
+  ifeq "$(GCCVERSIONLTEQ4)" "1"
+    OPT_SER += -D_NOIEEE_
+  endif
+  ifdef MPIFC
+    COMP_PAR = $(MPIFC)
+  endif
+  ifndef MPIFC
+    COMP_PAR = mpifort
+  endif
+  LINK_PAR = $(COMP_PAR)
+  OPT_PAR  = -O3 -ipo
+
+
+endif
+
 #-----------------
 #     ALARIK_INTEL
 #-----------------
@@ -318,6 +379,9 @@ ifeq ($(ARCH), LOCAL_INTEL)
   LLIB += -L$(FFTWLIB) -lfftw3 -lm
 endif
 ifeq ($(ARCH), LOCAL_GFORTRAN)
+  LLIB += -L$(FFTWLIB) -lfftw3 -lm
+endif
+ifeq ($(ARCH), PGFORTRAN)
   LLIB += -L$(FFTWLIB) -lfftw3 -lm
 endif
 ifeq ($(ARCH), ALARIK_INTEL)
