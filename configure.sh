@@ -18,6 +18,14 @@ else
    echo "no"
    lgfortran=false
 fi
+echo -n "Checking pgfortran ..."
+if command -v pgfortran >/dev/null 2>&1; then
+   echo "yes"
+   lpgfortran=true
+else
+   echo "no"
+   lpgfortran=false
+fi
 echo -n "Checking mpiifort ..."
 if command -v mpiifort >/dev/null 2>&1; then
    echo "yes"
@@ -59,6 +67,14 @@ elif [ $lgfortran = true ] && [ "$intelmpiFC" = "gfortran" ]; then
    echo "Found intelmpi and gfortran"
    FC="gfortran"
    MPIFC="mpiifort"
+elif [ $lpgfortran = true ] && [ "$openmpiFC" = "pgfortran" ]; then
+   echo "Found openmpi and pgfortran"
+   FC="pgfortran"
+   MPIFC="mpifort"
+elif [ $lpgfortran = true ] && [ "$intelmpiFC" = "pgfortran" ]; then
+   echo "Found intelmpi and pgfortran"
+   FC="pgfortran"
+   MPIFC="mpiifort"
 else
    echo "Warning: Could not detect a working mpi compiler combination. Unless the mpi compiler is adapted, the compilation of the parallel version will fail"
    if [ $lifort = true ]; then
@@ -86,6 +102,8 @@ while [ $setcomp = false ]; do
 done
 if [ "$FC" = "gfortran" ]; then
    echo "ARCH = LOCAL_GFORTRAN" > Src/make.arch
+elif [ "$FC" = "pgfortran" ]; then
+   echo "ARCH = LOCAL_PGFORTRAN" > Src/make.arch
 elif [ "$FC" = "ifort" ]; then
    echo "ARCH = LOCAL_INTEL" > Src/make.arch
 else
