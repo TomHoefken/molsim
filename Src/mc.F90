@@ -720,6 +720,9 @@ end module MCModule
 subroutine MCDriver(iStage)
 
    use MCModule
+#if defined (_CUDA_)
+   use CUDAModule
+#endif
    implicit none
 
    integer(4), intent(in) :: iStage
@@ -760,7 +763,14 @@ subroutine MCDriver(iStage)
 
    case (iSimulationStep)
 
+#if defined (_CUDA_)
+      call MCPassCUDA
+      if (lmcpass) then
+#endif
       call MCPass(iStage)                         ! MCAver(iSimulationStep) is called in MCPass
+#if defined (_CUDA_)
+      end if
+#endif
       if (lpspartsso) call SSODriver(iStage)   ! Pascal Hebbeker
 
    case (iAfterMacrostep)
@@ -5204,6 +5214,9 @@ subroutine MCUpdate
 
    use MCModule
    use CellListModule, only: UpdateCellIp
+#if defined (_CUDA_)
+   use CUDAModule
+#endif
    implicit none
 
    integer(4) :: ip, iploc
@@ -5224,7 +5237,11 @@ subroutine MCUpdate
 
    do iploc = 1, nptm
       ip = ipnptm(iploc)
+#if defined (_CUDA_)
+      ro(1:3,ip) = ro_d(1:3,ip)
+#else
       ro(1:3,ip) = rotm(1:3,iploc)                             ! position
+#endif
       if (lpolyatom .or. lellipsoid .or. lsuperball .or. lfixedori) ori(1:3,1:3,ip) = oritm(1:3,1:3,iploc)    ! orientation
 !  not sure that lfixedori is needed in the line above Jos
       call SetAtomProp(ip, ip, .false.)                        ! atom and dipole

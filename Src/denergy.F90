@@ -246,6 +246,9 @@ end subroutine DUTotal
 subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
 
    use EnergyModule
+#if defined (_CUDA_)
+   use CUDAModule
+#endif
    implicit none
 
    logical,    intent(out) :: lhsoverlap        ! =.true. hard-core overlap
@@ -255,6 +258,10 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
    integer(4) :: jp
    external utwobodynew
    external twobodyold
+
+#if defined (_CUDA_)
+   call startUTwoBodyAAll(lhsoverlap)
+#endif
 
    if (ltime) call CpuAdd('start', txroutine, 2, uout)
 
@@ -266,13 +273,16 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
    call par_allreduce_logical(lhsoverlap, laux)
 #endif
 
-   if (lhsoverlap) goto 400                     ! check hard-core overlap
+   if (.not.lhsoverlap) then                     ! check hard-core overlap
 
-   call twobodyold                               ! calculate old two-body potential energy
+#if defined (_CUDA_)
+      du%twob(0:nptpt) = utwobnew_d(0:nptpt)
+#else
+      call twobodyold                               ! calculate old two-body potential energy
+#endif
+      du%tot = du%tot + du%twob(0)                ! update
+   end if
 
-   du%tot = du%tot + du%twob(0)                ! update
-
-400 continue
 
    if (ltime) call CpuAdd('stop', txroutine, 2, uout)
 
