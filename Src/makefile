@@ -219,15 +219,17 @@ ifeq ($(ARCH), PGFORTRAN)
 
   COMP_SER = pgfortran
   LINK_SER = $(COMP_SER)
-  OPT_SER  = -O3 -acc -ta=tesla,cc70
+  #OPT_SER  = -O3 -acc -ta=tesla,cc70
+  OPT_SER  = -O3 -Mcuda -Mcuda=cc70 -Mpreprocess -DDOUBLE
+  OPT_debug  := -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc -Mpreprocess -DDOUBLE
 
-  OPT_format := -acc -ta=tesla,cc70 -Mbackslash
-  OPT_normal := $(OPT_format) -O3
+OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash
+  OPT_normal := $(OPT_format) -O3 -Mcuda=cc70
   # quick compilation:
   OPT_quick  := $(OPT_format) -O0
   OPT_test   := $(OPT_normal)
   # provide useful info at exceptions (use for debug):
-  OPT_debug  := $(OPT_format) -g -Minfo
+  OPT_debug  := $(OPT_format) -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc
   # provides many warnings:
   OPT_warn   := $(OPT_format) -O0
   # time the execution
@@ -349,6 +351,9 @@ ifeq ($(CBIND), TRUE)                      #F03 c-bindings
   ifeq ($(mode),gprof)
     DEFINES_BASE += -D_GPROF_
   endif
+  ifeq ($(ARCH), PGFORTRAN)
+    DEFINES_BASE += -D_CUDA_
+  endif
 endif
 
 
@@ -415,6 +420,12 @@ OBJS1=mol.o            \
       mesh.o           \
       celllist.o
 
+ifeq ($(ARCH), PGFORTRAN)
+OBJS1+= precision_m.o  \
+	mol_cuda.o     \
+	cuda.o
+endif
+
 OBJS2=$(OBJS1:.o=_par.o)
 OBJS2+=parallel_par.o
 
@@ -476,19 +487,34 @@ celllist.o:       mol.o
 celllist_par.o:   mol_par.o
 coordinate.o:     mol.o mollib.o
 coordinate_par.o: mol_par.o mollib_par.o
+ifeq ($(ARCH), PGFORTRAN)
+cuda.o:           mol.o mol_cuda.o precision_m.o
+endif
+ifeq ($(ARCH), PGFORTRAN)
+denergy.o:        mol.o energy.o mollib.o celllist.o cuda.o
+else
 denergy.o:        mol.o energy.o mollib.o celllist.o
+endif
 denergy_par.o:    mol_par.o energy_par.o mollib_par.o celllist_par.o
 dump.o:           mol.o
 dump_par.o:       mol_par.o
 dynamic.o:        mol.o statistics.o mollib.o
 dynamic_par.o:    mol_par.o statistics_par.o mollib_par.o
+ifeq ($(ARCH), PGFORTRAN)
+energy.o:         mol.o mollib.o celllist.o cuda.o
+else
 energy.o:         mol.o mollib.o celllist.o
+endif
 energy_par.o:     mol_par.o mollib_par.o celllist_par.o
 group.o:          mol.o
 group_par.o:      mol_par.o
 image.o:          mol.o mollib.o
 image_par.o:      mol_par.o mollib_par.o
+ifeq ($(ARCH), PGFORTRAN)
+mc.o:             mol.o nlist.o mollib.o celllist.o cuda.o
+else
 mc.o:             mol.o nlist.o mollib.o celllist.o
+endif
 mc_par.o:         mol_par.o nlist_par.o mollib_par.o celllist_par.o
 md.o:             mol.o
 md_par.o:         mol_par.o
@@ -497,6 +523,9 @@ mesh_par.o:
 mixed.o:          mol.o
 mixed_par.o:      mol_par.o
 mol.o:            statistics.o mesh.o mollib.o
+ifeq ($(ARCH), PGFORTRAN)
+mol_cuda.o:       mol.o precision_m.o potential.o
+endif
 mol_par.o:        statistics_par.o mesh_par.o mollib_par.o
 molaux.o:         mol.o mollib.o
 molaux_par.o:     mol_par.o mollib_par.o
@@ -504,7 +533,11 @@ moldyn.o:         statistics.o
 moldyn_par.o:     statistics_par.o
 mollib.o:
 mollib_par.o:
+ifeq ($(ARCH), PGFORTRAN)
+molsim.o:         mol.o statistics.o mollib.o cuda.o
+else
 molsim.o:         mol.o statistics.o mollib.o
+endif
 molsim_par.o:     mol_par.o statistics_par.o mollib_par.o
 moluser.o:        mol.o statistics.o potential.o mollib.o
 moluser_par.o:    mol_par.o potential_par.o statistics_par.o mollib_par.o
@@ -515,6 +548,9 @@ particle.o:       mol.o mollib.o
 particle_par.o:   mol_par.o mollib_par.o
 potential.o:      mol.o
 potential_par.o:  mol_par.o
+ifeq ($(ARCH), PGFORTRAN)
+precision_m.o:
+endif
 sso.o:            mc.o mol.o
 sso_par.o:        mc_par.o mol_par.o
 static.o:         mol.o statistics.o mollib.o potential.o
