@@ -2684,6 +2684,7 @@ module Random_Module
    integer, parameter :: k4b=selected_int_kind(9) ! = 4 on intel fortran and gfortran
    real(8) :: am
    integer(k4b) :: ix=-1,iy=-1
+   integer(k4b) :: ix2=-1,iy2=-1
 end module Random_Module
 
 function Random(idum)
