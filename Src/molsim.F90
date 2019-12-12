@@ -30,6 +30,9 @@
 program MolsimDriver
 
    use MolModule
+#if defined (_CUDA_)
+   use CUDAModule
+#endif
    implicit none
 
    character(40), parameter :: txroutine ='MolsimDriver'
@@ -58,6 +61,9 @@ program MolsimDriver
    call Particle(iReadInput)
    call PotentialDriver(iReadInput)
    if (.not.lmix) call Coordinate(iReadInput)
+#if defined (_CUDA_)
+   call GPUDriver(iReadInput)
+#endif
    call MolsimDriverSub(iReadInput)
 
 ! ............... process and write input data ..............
@@ -69,6 +75,9 @@ program MolsimDriver
    call PotentialDriver(iWriteInput)
    call IOCnf('open')
    if (.not.lmix) call Coordinate(iWriteInput)
+#if defined (_CUDA_)
+   call GPUDriver(iWriteInput)
+#endif
    call MolsimDriverSub(iWriteInput)
 
 ! ............... initiate simulation ................
@@ -77,6 +86,9 @@ program MolsimDriver
    call IOSystem(iBeforeSimulation)
    call PotentialDriver(iBeforeSimulation)
    call MolsimDriverSub(iBeforeSimulation)
+#if defined (_CUDA_)
+   call GPUDriver(iBeforeSimulation)
+#endif
    call IOCnf('close')
 
    do istep1 = nstep1beg, nstep1
