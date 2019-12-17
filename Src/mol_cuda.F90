@@ -100,7 +100,8 @@ module mol_cuda
 
    real(8) :: u_aux
    integer(4), device :: iseed_d
-   integer(4), device :: iseed2_d
+   integer(4), device :: iseed2_d = -1348
+   integer(4), device :: iseed_trial_d
 
       !for random generators
       real(8),device :: am_dev
