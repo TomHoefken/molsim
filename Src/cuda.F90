@@ -93,15 +93,15 @@ module CUDAModule
             rewind(uin)
             read(uin,nmlCUDA)
 
-! ... sum up the probabilies
+! ... sum up the probabilities
             pmcpasscuda = pmcpasscuda + pliang
+
+
+         case (IWriteInput)
 
 ! ... allocate memory for arrays on GPU
             call AllocateDeviceParams
             call PrepareMC_cudaAll
-
-         case (IWriteInput)
-
             call TransferConstantParams
 
          case (IBeforeSimulation)
@@ -117,8 +117,14 @@ module CUDAModule
 
          implicit none
          real(8) :: rrandom, Random
+         integer(4) :: ierr, ierra
+#if defined (_TESTGPU_)
+         real(8) :: Random3
 
+         rrandom = Random3(iseed_test2)
+#else
          rrandom = Random(iseed)
+#endif
 
          if (rrandom < pliang) then
             call MCPassAllGPU
@@ -170,7 +176,6 @@ module CUDAModule
                !dutwo_d = 0.0
                !dubond_d = 0.0
                !duclink_d = 0.0
-               !call GenerateRandoms_h
 #if defined (_NORMAL_)
                call GenerateRandoms<<<iblock1,256>>>
 #endif
@@ -287,11 +292,9 @@ module CUDAModule
 
 
          iblock1 = ceiling(real(np) / blocksize_h)
-         print *, "iblock1: ", iblock1
          iloops = ceiling(real(np)/20480)
          iloops_d = iloops
          iblock2 = ceiling(real(iblock1) / iloops)
-         print *, "iblock2: ", iblock2
          iblock1_d = iblock1
          iblock2_d = iblock2
 
@@ -331,24 +334,6 @@ module CUDAModule
 
       end subroutine GenerateRandoms
 
-      subroutine GenerateRandoms_h
-
-            implicit none
-            integer(4) ::  id
-
-            do id = 1, np
-               ptranx_h(id) = Random_h(iseed)
-               ptrany_h(id) = Random_h(iseed)
-               ptranz_h(id) = Random_h(iseed)
-               pmetro_h(id) = Random_h(iseed)
-            end do
-               pmetro = pmetro_h
-               ptranx = ptranx_h
-               ptrany = ptrany_h
-               ptranz = ptranz_h
-
-
-      end subroutine GenerateRandoms_h
 
       !! subroutine CalcNewPositions
       !! running on device, calling from device
@@ -386,9 +371,13 @@ module CUDAModule
 #if defined (_DEBUG_)
                if (id == 1) then
                   do id =1, np_d
-                     rotm_d(1,id) = ro_d(1,id) + (Random_dev(iseed_d)-Half)*dtran_d(iptpn_d(id))
-                     rotm_d(2,id) = ro_d(2,id) + (Random_dev(iseed_d)-Half)*dtran_d(iptpn_d(id))
-                     rotm_d(3,id) = ro_d(3,id) + (Random_dev(iseed_d)-Half)*dtran_d(iptpn_d(id))
+                     print *, iseed_trial_d
+                     rotm_d(1,id) = ro_d(1,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
+                     print *, iseed_trial_d
+                     rotm_d(2,id) = ro_d(2,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
+                     print *, iseed_trial_d
+                     rotm_d(3,id) = ro_d(3,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
+                     print *, iseed_trial_d
 
                      call PBC_cuda(rotm_d(1,id),rotm_d(2,id),rotm_d(3,id))
                   end do
@@ -1246,7 +1235,6 @@ attributes(global) subroutine UTwoBodyAAll(lhsoverlap)
           end do
        end if
 
-
 end subroutine UTwoBodyAAll
 
 !subroutine SPartMove_cuda
@@ -1681,10 +1669,9 @@ subroutine TransferConstantParams
         end do
         rsumrad = rsumrad_h
    if(ltime) call CpuAdd('stop', 'transferconstant', 1, uout)
-        ix_dev = ix
-        iy_dev = iy
         am_dev = am
-        iseed_d = iseed
+        iseed_d = -1228
+        iseed_trial_d = iseed_trial
 
 end subroutine TransferConstantParams
 
@@ -1735,28 +1722,15 @@ subroutine TransferDUTotalVarToDevice
         implicit none
         integer(4) :: i
 
-   if(ltime) call CpuAdd('start', 'transferDUtoDevice', 1, uout)
-   if(ltime) call CpuAdd('start', 'nptm', 2, uout)
         nptm_d = nptm
-   if(ltime) call CpuAdd('stop', 'nptm', 2, uout)
-   if(ltime) call CpuAdd('start', 'ipnptm', 2, uout)
         ipnptm_d(1:nptm) = ipnptm(1:nptm)
-   if(ltime) call CpuAdd('stop', 'ipnptm', 2, uout)
        ! nneighpn_d = nneighpn
-   if(ltime) call CpuAdd('start', 'lptm', 2, uout)
         lptm_d = lptm
-   if(ltime) call CpuAdd('stop', 'lptm', 2, uout)
-   if(ltime) call CpuAdd('start', 'rotm', 2, uout)
-      rotm_d(1:3,1:nptm) = rotm(1:3,1:nptm)
-       ! rotm_d = rotm
-   if(ltime) call CpuAdd('stop', 'rotm', 2, uout)
-   !if(ltime) call CpuAdd('start', 'transferPos', 2, uout)
-       ! ro_d = ro
+        rotm_d(1:3,1:nptm) = rotm(1:3,1:nptm)
+        !rotm_d = rotm
+        !ro_d = ro
    !if(ltime) call CpuAdd('stop', 'transferPos', 2, uout)
-   if(ltime) call CpuAdd('start', 'utwobnew', 2, uout)
         utwobnew_d(0:nptpt) = Zero
-   if(ltime) call CpuAdd('stop', 'utwobnew', 2, uout)
-   if(ltime) call CpuAdd('stop', 'transferDUtoDevice', 1, uout)
         !dutwob_d(0:nptpt) = Zero
         !utwobold_d(0:nptpt) = Zero
         !dutwobold(0:nptpt) = Zero
@@ -1886,7 +1860,7 @@ end subroutine TransferStatsToHost
          ix_dev = ix
          iy_dev = iy
          am_dev = am
-         iseed_d = iseed
+         iseed_d = -1228
          do ip = 1, np
            seedsnp(ip) = Random_int(iseed)
            seedsnp(ip) = -abs(seedsnp(ip))
@@ -1918,61 +1892,5 @@ end subroutine TransferStatsToHost
          Random_int = ceiling(a+(b-a)*am*ior(iand(im,ieor(ix,iy)),1))     !combine the two generators with masking to ensure nonzero value.
       end function Random_int
 
-      function Random_h(idum)
-         use Random_Module
-         implicit none
-         integer(k4b), intent(inout) :: idum
-         real(8) :: Random_h
-         integer(k4b), parameter :: ia=16807,im=2147483647,iq=127773,ir=2836
-         integer(k4b)   :: k
-         !icounter = icounter + 1
-         !write(*,*) "icounter: ", icounter
-         if (idum <= 0 .or. iy < 0) then           !initialize.
-            am=nearest(1.0,-1.0)/im
-            iy=ior(ieor(888889999,abs(idum)),1)
-            ix=ieor(777755555,abs(idum))
-            idum=abs(idum)+1                          !set idum positive.
-         end if
-         ix=ieor(ix,ishft(ix,13))                  !marsaglia shift sequence with period 2^32 − 1.
-         ix=ieor(ix,ishft(ix,-17))
-         ix=ieor(ix,ishft(ix,5))
-         k=iy/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
-         iy=ia*(iy-k*iq)-ir*k
-         if (iy < 0) iy=iy+im
-         Random_h=am*ior(iand(im,ieor(ix,iy)),1)     !combine the two generators with masking to ensure nonzero value.
-        ! print *, "am ", am
-        ! print *, "ix ", ix
-        ! print *, "iy ", iy
-        ! print *, "Random ", Random_h
-      end function Random_h
-
-      function Random_h2(idum)
-
-         use Random_Module
-         implicit none
-         integer(k4b), intent(inout) :: idum
-         real(8) :: Random_h2
-         integer(k4b), parameter :: ia=16807,im=2147483647,iq=127773,ir=2836
-         integer(k4b)   :: k
-         !icounter2 = icounter2 + 1
-         !write(*,*) "icounter2: ", icounter2
-         if (idum <= 0 .or. iy2 < 0) then           !initialize.
-            am=nearest(1.0,-1.0)/im
-            iy2=ior(ieor(888889999,abs(idum)),1)
-            ix2=ieor(777755555,abs(idum))
-            idum=abs(idum)+1                          !set idum positive.
-         end if
-         ix2=ieor(ix2,ishft(ix2,13))                  !marsaglia shift sequence with period 2^32 − 1.
-         ix2=ieor(ix2,ishft(ix2,-17))
-         ix2=ieor(ix2,ishft(ix2,5))
-         k=iy2/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
-         iy2=ia*(iy2-k*iq)-ir*k
-         if (iy2 < 0) iy2=iy2+im
-         Random_h2=am*ior(iand(im,ieor(ix2,iy2)),1)     !combine the two generators with masking to ensure nonzero value.
-        ! print *, "am ", am
-        ! print *, "ix ", ix2
-        ! print *, "iy ", iy2
-        ! print *, "Random ", Random_h2
-      end function Random_h2
 
 end module CUDAModule
