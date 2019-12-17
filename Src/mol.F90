@@ -1043,6 +1043,11 @@ module MolModule
 !! `integer`
 !! * Seed of random number generator. \ref iseed > 0 is required.
    integer(k4b)  :: iseed
+!  seeds of random number generator for Metropolis algorithm in test mode. The test mode should be make cpu and cuda-version
+!  comparable
+   integer(k4b)  :: iseed_test1 = -1456
+   integer(k4b)  :: iseed_test2 = -3212
+   integer(k4b)  :: iseed_trial = -2378
 !> \page maxcpu
 !! `integer`
 !! **default:** `0`
