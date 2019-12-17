@@ -259,15 +259,15 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
    external utwobodynew
    external twobodyold
 
+   if (ltime) call CpuAdd('start', txroutine, 2, uout)
+   du%twob(0:nptpt) = Zero                      ! initiate
 #if defined (_CUDA_)
    call startUTwoBodyAAll(lhsoverlap)
-#endif
+#else
 
-   if (ltime) call CpuAdd('start', txroutine, 2, uout)
-
-   du%twob(0:nptpt) = Zero                      ! initiate
 
    call utwobodynew(lhsoverlap,jp)                ! calculate new two-body potential energy
+#endif
 
 #if defined (_PAR_)
    call par_allreduce_logical(lhsoverlap, laux)
@@ -277,6 +277,7 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
 
 #if defined (_CUDA_)
       du%twob(0:nptpt) = utwobnew_d(0:nptpt)
+      du%twob(0) = sum(du%twob(1:nptpt))
 #else
       call twobodyold                               ! calculate old two-body potential energy
 #endif
