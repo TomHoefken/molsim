@@ -1487,7 +1487,7 @@ subroutine MCPass(iStage)
 
    character(40), parameter :: txroutine ='MCPass'
    integer(4) :: ipt, ict
-   real(8)    :: Random, prandom, drnold, rchain
+   real(8)    :: Random, Random3, prandom, drnold, rchain
    logical :: lnonloc
 
    if (ltrace) call WriteTrace(2, txroutine, iStage)
@@ -4536,6 +4536,7 @@ end subroutine ClusterMemberLList
 
 subroutine GetRandomTrialPos(dtran, iseed, nptm, ipnptm, ro, rotm, drotm)
 
+   use Molmodule, only: iseed_trial
    implicit none
    real(8),    intent(in)  :: dtran       ! translational displacement
                                           ! > 0 square region, < 0 spherical region
@@ -4549,10 +4550,26 @@ subroutine GetRandomTrialPos(dtran, iseed, nptm, ipnptm, ro, rotm, drotm)
    real(8), parameter :: Zero = 0.0d0, Half = 0.5d0, One = 1.0d0, Two = 2.0d0
    integer(4) :: iploc, ip
    real(8) :: dx, dy, dz
-   real(8) :: Random
+   real(8) :: Random, Random4
 
 ! ... get translational displacement
-
+#if defined (_TEST_GPU)
+   if (dtran >= Zero) then                     ! in a box
+      dx = (Random4(iseed_trial)-Half)*dtran
+      dy = (Random4(iseed_trial)-Half)*dtran
+      dz = (Random4(iseed_trial)-Half)*dtran
+   else                                       ! in a sphere of radius 0.5
+      do
+         dx = Random4(iseed_trial)-Half
+         dy = Random4(iseed_trial)-Half
+         dz = Random4(iseed_trial)-Half
+         if (dx**2 + dy**2 + dz**2 < Half**2) exit
+      end do
+      dx = dx*abs(dtran)
+      dy = dy*abs(dtran)
+      dz = dz*abs(dtran)
+   end if
+#else
    if (dtran >= Zero) then                     ! in a box
       dx = (Random(iseed)-Half)*dtran
       dy = (Random(iseed)-Half)*dtran
@@ -4568,6 +4585,7 @@ subroutine GetRandomTrialPos(dtran, iseed, nptm, ipnptm, ro, rotm, drotm)
       dy = dy*abs(dtran)
       dz = dz*abs(dtran)
    end if
+#endif
 
 ! ... get trial coordinates and store translational displacemnt
 
@@ -5155,7 +5173,7 @@ subroutine Metropolis(lboxoverlap, lhsoverlap, lhepoverlap, weight, dured)
 
    character(40), parameter :: txroutine ='Metropolis'
    real(8) :: fac
-   real(8) :: Random
+   real(8) :: Random, Random2
 
    if (lboxoverlap) then
       ievent = imcboxreject
@@ -5175,7 +5193,11 @@ subroutine Metropolis(lboxoverlap, lhsoverlap, lhepoverlap, weight, dured)
       fac = weight*exp(-dured)
       if (fac > One) then
          ievent = imcaccept
+#if defined (_TESTGPU_)
+      else if (fac > Random2(iseed_test1)) then
+#else
       else if (fac > Random(iseed)) then
+#endif
          ievent = imcaccept
       else
          ievent = imcreject
@@ -5237,10 +5259,9 @@ subroutine MCUpdate
 
    do iploc = 1, nptm
       ip = ipnptm(iploc)
-#if defined (_CUDA_)
-      ro(1:3,ip) = ro_d(1:3,ip)
-#else
       ro(1:3,ip) = rotm(1:3,iploc)                             ! position
+#if defined (_CUDA_)
+      ro_d(1:3,ip) = ro(1:3,ip)
 #endif
       if (lpolyatom .or. lellipsoid .or. lsuperball .or. lfixedori) ori(1:3,1:3,ip) = oritm(1:3,1:3,iploc)    ! orientation
 !  not sure that lfixedori is needed in the line above Jos
