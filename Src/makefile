@@ -109,6 +109,8 @@ ifeq ($(ARCH), LOCAL_INTEL)
   OPT_quick  := -O0
   # -fp-model strict -fp-model source:
   OPT_test   := $(OPT_normal)
+  # -fp-model strict -fp-model source:
+  OPT_testGPU   := $(OPT_normal)
   # provide useful info at exceptions (use for debug):
   OPT_debug  := -O0 -traceback -check bounds -check uninit -ftrapuv
   # provides many warnings:
@@ -120,6 +122,9 @@ ifeq ($(ARCH), LOCAL_INTEL)
   endif
   ifeq ($(mode),test)
     OPT_SER = $(OPT_test)
+  endif
+  ifeq ($(mode),testGPU)
+    OPT_SER = $(OPT_testGPU)
   endif
   ifeq ($(mode),debug)
     OPT_SER = $(OPT_debug)
@@ -336,11 +341,14 @@ ifeq ($(CBIND), TRUE)                      #F03 c-bindings
   ifeq ($(mode),test)
     DEFINES_BASE += -D_TEST_
   endif
+  ifeq ($(mode),testGPU)
+    DEFINES_BASE += -D_TESTGPU_
+  endif
   ifeq ($(mode),normal)
     DEFINES_BASE += -D_NORMAL_
   endif
   ifeq ($(mode),debug)
-    DEFINES_BASE += -D_DEBUG_
+    DEFINES_BASE += -D_DEBUG_ -D_TESTGPU_
   endif
   ifeq ($(mode),warn)
     DEFINES_BASE += -D_WARN_
