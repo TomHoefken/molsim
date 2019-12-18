@@ -1045,7 +1045,7 @@ module MolModule
    integer(k4b)  :: iseed
 !  seeds of random number generator for Metropolis algorithm in test mode. The test mode should be make cpu and cuda-version
 !  comparable
-   integer(k4b)  :: iseed_test1 = -1456
+   integer(k4b)  :: iseed_test1 = -1348
    integer(k4b)  :: iseed_test2 = -3212
    integer(k4b)  :: iseed_trial = -2378
 !> \page maxcpu
@@ -1621,5 +1621,12 @@ module MolModule
    integer(4)    :: iamyid(2)              ! atom boundary (processor specific)
    integer(4)    :: kvecmyid(2)            ! k-vector boundary (processor specific)
    integer(4)    :: kvecoffmyid            ! k-vector offset (processor specific)
+
+
+!> \page dtran
+!! `real`(1:\ref npt)
+!! **default:** \ref npt*`0.0`
+!! * 0.5*\ref dtran is the maximal translational displacement of a particle along one box axis. Displacements are made along all box axes. If \ref dtran>0, square region, or if \ref dtran<0, spherical displacement region.
+   real(8), allocatable       :: dtran(:)
 
 end module MolModule
