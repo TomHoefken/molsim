@@ -2727,7 +2727,7 @@ function Random2(idum)
    ix2=ieor(ix2,ishft(ix2,13))                  !marsaglia shift sequence with period 2^32 − 1.
    ix2=ieor(ix2,ishft(ix2,-17))
    ix2=ieor(ix2,ishft(ix2,5))
-   k=iy/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
+   k=iy2/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
    iy2=ia*(iy2-k*iq)-ir*k
    if (iy2 < 0) iy2=iy2+im
    Random2=am*ior(iand(im,ieor(ix2,iy2)),1)     !combine the two generators with masking to ensure nonzero value.
@@ -2750,7 +2750,7 @@ function Random3(idum)
    ix3=ieor(ix3,ishft(ix3,13))                  !marsaglia shift sequence with period 2^32 − 1.
    ix3=ieor(ix3,ishft(ix3,-17))
    ix3=ieor(ix3,ishft(ix3,5))
-   k=iy/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
+   k=iy3/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
    iy3=ia*(iy3-k*iq)-ir*k
    if (iy3 < 0) iy3=iy3+im
    Random3=am*ior(iand(im,ieor(ix3,iy3)),1)     !combine the two generators with masking to ensure nonzero value.
@@ -2772,7 +2772,7 @@ function Random4(idum)
    ix4=ieor(ix4,ishft(ix4,13))                  !marsaglia shift sequence with period 2^32 − 1.
    ix4=ieor(ix4,ishft(ix4,-17))
    ix4=ieor(ix4,ishft(ix4,5))
-   k=iy/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
+   k=iy4/iq                                   !park-miller sequence by schrage’s method, period 2^31 − 2.
    iy4=ia*(iy4-k*iq)-ir*k
    if (iy4 < 0) iy4=iy4+im
    Random4=am*ior(iand(im,ieor(ix4,iy4)),1)     !combine the two generators with masking to ensure nonzero value.
