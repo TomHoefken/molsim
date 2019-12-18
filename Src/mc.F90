@@ -178,7 +178,7 @@ module MCModule
 !! `real`(1:\ref npt)
 !! **default:** \ref npt*`0.0`
 !! * 0.5*\ref dtran is the maximal translational displacement of a particle along one box axis. Displacements are made along all box axes. If \ref dtran>0, square region, or if \ref dtran<0, spherical displacement region.
-   real(8), allocatable       :: dtran(:)
+!   real(8), allocatable       :: dtran(:)
 !> \page drot
 !! `real`(1:\ref npt)
 !! **default:** \ref npt*`0.0`
@@ -800,6 +800,7 @@ end subroutine MCDriver
 subroutine IOMC(iStage)
 
    use MCModule
+   use MolModule, only: dtran
    implicit none
 
    integer(4), intent(in) :: iStage
@@ -4553,7 +4554,7 @@ subroutine GetRandomTrialPos(dtran, iseed, nptm, ipnptm, ro, rotm, drotm)
    real(8) :: Random, Random4
 
 ! ... get translational displacement
-#if defined (_TEST_GPU)
+#if defined (_TESTGPU_)
    if (dtran >= Zero) then                     ! in a box
       dx = (Random4(iseed_trial)-Half)*dtran
       dy = (Random4(iseed_trial)-Half)*dtran
