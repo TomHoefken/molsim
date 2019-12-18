@@ -232,7 +232,7 @@ OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash
   OPT_normal := $(OPT_format) -O3 -Mcuda=cc70
   # quick compilation:
   OPT_quick  := $(OPT_format) -O0
-  OPT_test   := $(OPT_normal)
+  OPT_testGPU   := $(OPT_normal)
   # provide useful info at exceptions (use for debug):
   OPT_debug  := $(OPT_format) -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc
   # provides many warnings:
@@ -244,8 +244,8 @@ OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash
   ifeq ($(mode),normal)
     OPT_SER = $(OPT_normal)
   endif
-  ifeq ($(mode),test)
-    OPT_SER = $(OPT_test)
+  ifeq ($(mode),testGPU)
+    OPT_SER = $(OPT_testGPU)
   endif
   ifeq ($(mode),debug)
     OPT_SER = $(OPT_debug)
@@ -348,7 +348,7 @@ ifeq ($(CBIND), TRUE)                      #F03 c-bindings
     DEFINES_BASE += -D_NORMAL_
   endif
   ifeq ($(mode),debug)
-    DEFINES_BASE += -D_DEBUG_ -D_TESTGPU_
+    DEFINES_BASE += -D_DEBUG_
   endif
   ifeq ($(mode),warn)
     DEFINES_BASE += -D_WARN_
