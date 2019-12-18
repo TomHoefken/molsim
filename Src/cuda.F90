@@ -368,16 +368,12 @@ module CUDAModule
                call PBC_cuda(rotm_d(1,id),rotm_d(2,id),rotm_d(3,id))
             end if
 #endif
-#if defined (_DEBUG_)
+#if defined (_TESTGPU_)
                if (id == 1) then
                   do id =1, np_d
-                     print *, iseed_trial_d
                      rotm_d(1,id) = ro_d(1,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
-                     print *, iseed_trial_d
                      rotm_d(2,id) = ro_d(2,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
-                     print *, iseed_trial_d
                      rotm_d(3,id) = ro_d(3,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
-                     print *, iseed_trial_d
 
                      call PBC_cuda(rotm_d(1,id),rotm_d(2,id),rotm_d(3,id))
                   end do
@@ -1588,7 +1584,7 @@ subroutine TransferConstantParams
         rcut2_d = rcut2
         scrlen_d = scrlen
         nptpt_d = nptpt
-        !dtran_d = dtran
+        dtran_d = dtran
         r2atat_d = r2atat
         r2umin_d = r2umin
         iubuflow_d = iubuflow
@@ -1776,7 +1772,6 @@ end subroutine TransferStatsToHost
         ! print *, "am ", am_dev
         ! print *, "ix ", ix_dev2
         ! print *, "iy ", iy_dev2
-        ! print *, "Random ", Random_dev2
       end function Random_dev2
 
       attributes(device) function Random_dev(idum)
@@ -1785,8 +1780,6 @@ end subroutine TransferStatsToHost
          real(8) :: Random_dev
          integer(k4b), parameter :: ia=16807,im=2147483647,iq=127773,ir=2836
          integer(k4b)   :: k
-         !icounter_d = icounter_d + 1
-         !write(*,*) "icounter: ", icounter_d
          if (idum <= 0 .or. iy_dev < 0) then           !initialize.
             am_dev=nearest(1.0,-1.0)/im
             iy_dev=ior(ieor(888889999,abs(idum)),1)
@@ -1800,10 +1793,6 @@ end subroutine TransferStatsToHost
          iy_dev=ia*(iy_dev-k*iq)-ir*k
          if (iy_dev < 0) iy_dev=iy_dev+im
          Random_dev=am_dev*ior(iand(im,ieor(ix_dev,iy_dev)),1)     !combine the two generators with masking to ensure nonzero value.
-        ! print *, "am ", am_dev
-        ! print *, "ix ", ix_dev
-        ! print *, "iy ", iy_dev
-        ! print *, "Random ", Random_dev
       end function Random_dev
 
 
