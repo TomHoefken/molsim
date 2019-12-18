@@ -99,23 +99,23 @@ module mol_cuda
 
 
    real(8) :: u_aux
-   integer(4), device :: iseed_d
-   integer(4), device :: iseed2_d = -1348
-   integer(4), device :: iseed_trial_d
 
       !for random generators
-      real(8),device :: am_dev
-      integer(k4b),device :: ix_dev=-1,iy_dev=-1
-      integer(k4b),device :: ix_dev2=-1,iy_dev2=-1
-      integer, parameter :: k4b_d=selected_int_kind(9) ! = 4 on intel fortran and gfortran
-      real(8), device, allocatable :: am_d(:)
-      integer(k4b),device, allocatable :: ix_d(:),iy_d(:)
-      integer(4), allocatable :: seeds(:)
-      integer(4),device, allocatable :: seeds_d(:)
-      integer(4) :: icounter
-      integer(4),device :: icounter_d
-      integer(4) :: icounter2
-      integer(4),device :: icounter2_d
+   real(8),device :: am_dev
+   integer(k4b),device :: ix_dev=-1,iy_dev=-1
+   integer(k4b),device :: ix_dev2=-1,iy_dev2=-1
+   integer, constant :: k4b_d=selected_int_kind(9) ! = 4 on intel fortran and gfortran
+   real(8), device, allocatable :: am_d(:)
+   integer(k4b),device, allocatable :: ix_d(:),iy_d(:)
+   integer(4), allocatable :: seeds(:)
+   integer(4),device, allocatable :: seeds_d(:)
+   integer(4) :: icounter
+   integer(4),device :: icounter_d
+   integer(4) :: icounter2
+   integer(4),device :: icounter2_d
+   integer(k4b), device :: iseed_d
+   integer(k4b), device :: iseed2_d = -1348
+   integer(k4b), device :: iseed_trial_d
 
 
 end module mol_cuda
