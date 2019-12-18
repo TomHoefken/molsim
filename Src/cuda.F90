@@ -1237,28 +1237,6 @@ attributes(global) subroutine UTwoBodyAAll(lhsoverlap)
 
 end subroutine UTwoBodyAAll
 
-!subroutine SPartMove_cuda
-
-!   use precision_m
-!   use mol_cuda
-!  implicit none
-!  integer(4) :: iploc
-!  real(fp_kind) :: dtr
-!
-!  imovetype_d = ispartmove_d
-
-!  nptm_d = 1
-!  iploc = 1
-!  ipnptm_d(iploc) = ipmove
-!  lptm_d(ipmove) = .true.
-!  iptmove_d = iptmove
-!  dtr = dtran_d(iptmove)
-
-!  call GetRandomTrialPos
-
-
-
-!end subroutine SPartMove_cuda
 attributes(grid_global) subroutine MCPass_cuda
 
    use mol_cuda
