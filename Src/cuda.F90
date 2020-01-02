@@ -52,6 +52,9 @@ module CUDAModule
       real(fp_kind), device, allocatable :: Ebond_d(:)
       real(fp_kind), device, allocatable :: Eclink_d(:)
 
+      !
+      integer(4), device, allocatable :: ipGPU_d(:)
+
       !MCPass_cuda
       real(fp_kind),device :: dubond_d
       real(fp_kind), device :: duclink_d
@@ -127,12 +130,17 @@ module CUDAModule
 #endif
 
          if (rrandom < pliang) then
+            call ConvertCoordinatesAuxToDevice<<<iblock1,256>>>
+                  ierra = cudaDeviceSynchronize()
             call MCPassAllGPU
             call MCCudaUpdate
             lmcpass = .false.
          else if (rrandom < pmcpasscuda) then
             call CalcNewPositions<<<iblock1,256>>>
             call MCPass_cuda<<<iblock2,256,isharedmem_mcpass>>>
+            ro = ro_d
+            ro_aux = ro
+            call ConvertCoordinates<<<iblock1,256>>>
             call MCCudaUpdate
             lmcpass = .false.
          else
@@ -206,9 +214,66 @@ module CUDAModule
                   if (ierr /= cudaSuccess) write(*,*) "Sync kernel error: ", cudaGetErrorString(ierr)
                   if (ierra /= cudaSuccess) write(*,*) "Async kernel err: ", cudaGetErrorString(ierra)
                end do
+               !ro = ro_d
+               !ro_aux = ro
+                  ierra = cudaDeviceSynchronize()
+               call TransferToAux<<<iblock1,256>>>
+               call ConvertCoordinates<<<iblock1,256>>>
+                  ierra = cudaDeviceSynchronize()
                !call CountMCsteps(ipmove,iaccept,imovetype)
 
       end subroutine MCPassAllGPU
+
+      attributes(global) subroutine TransferToAux
+
+         implicit none
+         integer(4) :: id
+
+         id = (blockidx%x-1)*blocksize + threadIDx%x
+         if (id <= np_d) then
+            ro_aux(1,id) = ro_d(1,id)
+          !  if (id ==2) print *,"transfertoaux: ", ro_aux(1,2)
+            ro_aux(2,id) = ro_d(2,id)
+            ro_aux(3,id) = ro_d(3,id)
+         end if
+
+      end subroutine TransferToAux
+
+      attributes(global) subroutine ConvertCoordinatesAuxToDevice
+
+         implicit none
+         integer(4) :: id
+
+         id = (blockidx%x-1)*blocksize + threadIDx%x
+         !ro_aux = ro_d
+          !  if (id ==2) print *,"austodevice1: ", ro_aux(1,2)
+         if (id <= np_d) then
+            ro_d(1,id) = ro_aux(1,id)
+          !  if (id ==2) print *,"austodevice2: ", ro_aux(1,2)
+            ro_d(2,id) = ro_aux(2,id)
+            ro_d(3,id) = ro_aux(3,id)
+         end if
+
+      end subroutine ConvertCoordinatesAuxToDevice
+
+      attributes(global) subroutine ConvertCoordinates
+
+         implicit none
+         integer(4) :: id
+
+         id = (blockidx%x-1)*blocksize + threadIDx%x
+         !ro_aux = ro_d
+         if (id <= np_d) then
+            !ro_d(1,ipGPU_d(id)) = ro_aux(1,id)
+            !ro_d(2,ipGPU_d(id)) = ro_aux(2,id)
+            !ro_d(3,ipGPU_d(id)) = ro_aux(3,id)
+            ro_d(1,id) = ro_aux(1,ipGPU_d(id))
+          !  if (id ==2) print *, "end: ", ro_d(1,2)
+            ro_d(2,id) = ro_aux(2,ipGPU_d(id))
+            ro_d(3,id) = ro_aux(3,ipGPU_d(id))
+         end if
+
+      end subroutine ConvertCoordinates
 
       subroutine PrepareMC_cudaAll
 
@@ -356,7 +421,7 @@ module CUDAModule
 
             use mol_cuda
             implicit none
-            integer(4)            :: id, id_int
+            integer(4)            :: id, id_int, i, ip
        !     real(8), parameter     :: Half = 0.5d0
 
             id = (blockidx%x-1)*blockDim%x + threadIDx%x
@@ -370,12 +435,12 @@ module CUDAModule
 #endif
 #if defined (_TESTGPU_)
                if (id == 1) then
-                  do id =1, np_d
-                     rotm_d(1,id) = ro_d(1,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
-                     rotm_d(2,id) = ro_d(2,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
-                     rotm_d(3,id) = ro_d(3,id) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(id))
+                  do ip =1, np_d
+                     rotm_d(1,ip) = ro_d(1,ip) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(ip))
+                     rotm_d(2,ip) = ro_d(2,ip) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(ip))
+                     rotm_d(3,ip) = ro_d(3,ip) + (Random_dev(iseed_trial_d)-Half)*dtran_d(iptpn_d(ip))
 
-                     call PBC_cuda(rotm_d(1,id),rotm_d(2,id),rotm_d(3,id))
+                     call PBC_cuda(rotm_d(1,ip),rotm_d(2,ip),rotm_d(3,ip))
                   end do
                end if
 #endif
@@ -750,54 +815,21 @@ module CUDAModule
                         lhsoverlap(id) = .true.
                      end if
                      call calcUTabplus(id,i,rdistnew,usum)
-                    !ibuf2 = iubuflow_d(iptpt_d(iptip_s,iptjp_s))
-                    !ibuf = ibuf2
-                    ! do
-                    !    if (rdistnew >= ubuf_s(ibuf)) exit
-                    !    ibuf = ibuf+12
-                    ! end do
-                    !    d = rdistnew - ubuf_d(ibuf)
-                    ! usum = ubuf_s(ibuf+1)+d*(ubuf_s(ibuf+2)+d*(ubuf_s(ibuf+3)+ &
-                    !       d*(ubuf_s(ibuf+4)+d*(ubuf_s(ibuf+5)+d*ubuf_s(ibuf+6)))))
                      E_s = E_s + usum
-                     !Etwo_s = Etwo_s + usum
                   !old energy
                      dx = roix - rox
                      dy = roiy - roy
                      dz = roiz - roz
                      call PBCr2_cuda(dx,dy,dz,rdistold)
                      call calcUTabminus(id,i,rdistold,usum)
-                    !ibuf = iubuflow_d(iptpt_d(iptip_s,iptjp_s))
-                    !ibuf = ibuf2
-                     !do
-                     !   if (rdistold >= ubuf_s(ibuf)) exit
-                     !   ibuf = ibuf+12
-                     !end do
-                     !   d = rdistold - ubuf_d(ibuf)
-                     !usum = ubuf_s(ibuf+1)+d*(ubuf_s(ibuf+2)+d*(ubuf_s(ibuf+3)+ &
-                     !      d*(ubuf_s(ibuf+4)+d*(ubuf_s(ibuf+5)+d*ubuf_s(ibuf+6)))))
                      E_s = E_s - usum
-                     !Etwo_s = Etwo_s - usum
 
                !calculate bonds
                if (ictpn_d(i) /= 0) then
                   do j= 1, 2
                      if (i == bondnn_d(j,id)) then
-                        !dx = roix - rotmx
-                        !dy = roiy - rotmy
-                        !dz = roiz - rotmz
-                        !call PBCr2_cuda(dx,dy,dz,rdist)
-                        !E_s = E_s + bondk_s*(sqrt(rdist) - bondeq_s)**bondp_s
-
-                        !dx = roix - rox
-                        !dy = roiy - roy
-                        !dz = roiz - roz
-                        !call PBCr2_cuda(dx,dy,dz,rdist)
-                        !E_s = E_s - bondk_s*(sqrt(rdist) - bondeq_s)**bondp_s
                         E_s = E_s + bondk_s*((sqrt(rdistnew)-bondeq_s)**bondp_s - &
                            (sqrt(rdistold) - bondeq_s)**bondp_s)
-                        !Ebond_s = Ebond_s + bondk_s*((sqrt(rdistnew)-bondeq_s)**bondp_s - &
-                        !   (sqrt(rdistold) - bondeq_s)**bondp_s)
                      end if
 
                   end do
@@ -806,21 +838,8 @@ module CUDAModule
                if (lclink_d) then
                   do j=1,nbondcl_d(i)
                      if (id == bondcl_d(j,i)) then
-                        !dx = roix - rotmx
-                        !dy = roiy - rotmy
-                        !dz = roiz - rotmz
-                        !call PBCr2_cuda(dx,dy,dz,rdist)
-                        !E_s = E_s + clinkk_s*(sqrt(rdist) - clinkeq_s)**clinkp_s
-
-                        !dx = roix - rox
-                        !dy = roiy - roy
-                        !dz = roiz - roz
-                        !call PBCr2_cuda(dx,dy,dz,rdist)
-                        !E_s = E_s - clinkk_s*(sqrt(rdist) - clinkeq_s)**clinkp_s
                         E_s = E_s + clinkk_s*((sqrt(rdistnew)-clinkeq_s)**clinkp_s - &
                            (sqrt(rdistold) - clinkeq_s)**clinkp_s)
-                        !Eclink_s = Eclink_s + clinkk_s*((sqrt(rdistnew)-clinkeq_s)**clinkp_s - &
-                        !   (sqrt(rdistold) - clinkeq_s)**clinkp_s)
                      end if
                   end do
                end if
@@ -1515,6 +1534,7 @@ subroutine AllocateDeviceParams
         !allocate(jpnlist_d(maxnneigh,npartperproc))
         allocate(utwob_d(0:nptpt))
         allocate(ro_d(3,np_alloc))
+        allocate(ro_aux(3,np_alloc))
         allocate(r2umin_d(natat))
         allocate(r2atat_d(natat))
         allocate(iubuflow_d(natat))
@@ -1558,6 +1578,7 @@ subroutine AllocateDeviceParams
         allocate(ix_d(np_alloc))
         allocate(iy_d(np_alloc))
         allocate(am_d(np_alloc))
+        allocate(ipGPU_d(np_alloc))
    if(ltime) call CpuAdd('stop', 'allocation', 1, uout)
 
 
@@ -1570,7 +1591,7 @@ subroutine TransferConstantParams
         use PotentialModule
         implicit none
 
-        integer(4) :: istat, ipt, jpt, ict
+        integer(4) :: istat, ipt, jpt, ict, ip, ierra
 
    if(ltime) call CpuAdd('start', 'transferconstant', 1, uout)
         boxlen2_d = boxlen2
@@ -1626,6 +1647,7 @@ subroutine TransferConstantParams
         ltest_cuda = .true.
 
         ro_d = ro
+        ro_aux = ro
         sizeofblocks_d = 512
         threadssum =16
         threadssum_d = threadssum
@@ -1646,49 +1668,31 @@ subroutine TransferConstantParams
         am_dev = am
         iseed_d = -1228
         iseed_trial_d = iseed_trial
+        ipGPU_d = ipGPU
+        call TransferCoordinatesToDevice<<<iblock1,256>>>
+                  ierra = cudaDeviceSynchronize()
+        call TransferToAux<<<iblock1,256>>>
+                  ierra = cudaDeviceSynchronize()
+        print *, "8"
 
 end subroutine TransferConstantParams
 
-subroutine TransferVarParamsToDevice
+attributes(global) subroutine TransferCoordinatesToDevice
 
-        !use NListModule
-        implicit none
+   implicit none
+   integer(4) :: id
 
-        integer(4) :: istat
-        !istat = cudaMemcpy2D(ro_d,ro,3*np)
+   id = (blockidx%x-1)*blocksize + threadIDx%x
+   if (id <= np_d ) then
+      ro_d(1,ipGPU_d(id)) = ro_aux(1,id)
+      ro_d(2,ipGPU_d(id)) = ro_aux(2,id)
+      ro_d(3,ipGPU_d(id)) = ro_aux(3,id)
+      iptpn_d(ipGPU_d(id)) = iptpn_d(id)
+   end if
 
-   if(ltime) call CpuAdd('start', 'transferVartoDevice', 1, uout)
-        ro_d =ro
-        !utwob_d = u%twob
-        utwob_d = 0.0
-        virtwob_d = 0.0
-        virial_d = virial
-        !istat = cudaMemcpy(nneighpn_d,nneighpn,np)
-        !nneighpn_d = nneighpn
-        !jpnlist_d = jpnlist
-        utot_d = u%tot
-        virtwob_d = 0.0
-   if(ltime) call CpuAdd('start', 'transferVartoDevice', 1, uout)
 
-        !istat = cudaMemcpy(nneighpn_d, nneighpn,np)
-        !istat = cudaMemcpy(jpnlist_d,jpnlist,maxnneigh*np)
+end subroutine TransferCoordinatesToDevice
 
-end subroutine TransferVarParamsToDevice
-
-subroutine TransferVarParamsToHost
-
-        implicit none
-
-        integer(4) :: istat
-
-   if(ltime) call CpuAdd('start', 'transferVartohost', 1, uout)
-        !istat = cudaMemcpy(ro_d,ro,3*np)
-        !ro = ro_d
-        !virial = virial_d
-        !u%tot = utot_d
-        u%twob = utwob_d
-   if(ltime) call CpuAdd('stop', 'transferVartohost', 1, uout)
-end subroutine TransferVarParamsToHost
 
 subroutine TransferDUTotalVarToDevice
 
@@ -1698,54 +1702,11 @@ subroutine TransferDUTotalVarToDevice
 
         nptm_d = nptm
         ipnptm_d(1:nptm) = ipnptm(1:nptm)
-       ! nneighpn_d = nneighpn
         lptm_d = lptm
         rotm_d(1:3,1:nptm) = rotm(1:3,1:nptm)
-        !rotm_d = rotm
-        !ro_d = ro
-   !if(ltime) call CpuAdd('stop', 'transferPos', 2, uout)
         utwobnew_d(0:nptpt) = Zero
-        !dutwob_d(0:nptpt) = Zero
-        !utwobold_d(0:nptpt) = Zero
-        !dutwobold(0:nptpt) = Zero
 
 end subroutine TransferDUTotalVarToDevice
-
-subroutine TransferDUTotalVarToHost
-
-        use Molmodule
-        implicit none
-        integer(4) :: i
-        !logical, intent(inout) :: lhsoverlap
-   if(ltime) call CpuAdd('start', 'transferDUToHost', 1, uout)
-        dutwobold = utwobold_d
-        do i = 1, nptpt
-           du%twob(i) = du%twob(i) - dutwobold(i)
-        end do
-        du%twob(0) = sum(du%twob(1:nptpt))
-   if(ltime) call CpuAdd('stop', 'transferDUToHost', 1, uout)
-
-
-end subroutine TransferDUTotalVarToHost
-
-subroutine TransferStatsToHost
-
-   implicit none
-    integer(4) :: istat, ip
-
-    ro = ro_d
-    u%tot = utot_d
-
-end subroutine TransferStatsToHost
-
-
-
-
-
-
-
-
-
 
 
       attributes(device) function Random_dev2(idum)
