@@ -28,6 +28,7 @@ module mol_cuda
    logical,device       :: lmc_d                    ! flag for monte carlo simulation
    real(fp_kind),device       :: virial_d                 ! virial
    real(fp_kind), device, allocatable :: ro_d(:,:)         ! particle position
+   real(fp_kind), device, allocatable :: ro_aux(:,:)         ! particle position
    integer(4),device, allocatable :: nneighpn_d(:)  ! particle (local) -> number of neighbours
    integer(4),device, allocatable :: jpnlist_d(:,:) ! ineigh (local list) and ip (global or local) -> neigbour particle (1:np)
    integer(4),device              :: nbuf_d         ! length of buffer
