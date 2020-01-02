@@ -1542,6 +1542,11 @@ subroutine MCPass(iStage)
       ipmove = max(1,int(min(ipmove,np)))
       iptmove = iptpn(ipmove)
 
+#if defined (_TESTGPU_)
+      ipmove = ipCPU(ipmove)     ! ipCPU
+      iptmove = iptpn(ipmove)
+#endif
+
 
 ! ... check if particle should be moved
 
