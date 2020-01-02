@@ -1629,4 +1629,7 @@ module MolModule
 !! * 0.5*\ref dtran is the maximal translational displacement of a particle along one box axis. Displacements are made along all box axes. If \ref dtran>0, square region, or if \ref dtran<0, spherical displacement region.
    real(8), allocatable       :: dtran(:)
 
+   integer(4), allocatable    :: ipGPU(:)
+   integer(4), allocatable    :: ipCPU(:)
+
 end module MolModule
