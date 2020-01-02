@@ -2071,7 +2071,7 @@ subroutine SetObjectParam2
    implicit none
 
    character(40), parameter :: txroutine ='SetObjectParam2'
-   integer(4) :: inwt, jnwt, ict, jct, ip, ipt, jpt, ia, iat, jat, iatjat, iatloc, ntemp, ja
+   integer(4) :: inwt, jnwt, ict, jct, ip, ipt, jpt, ia, iat, jat, iatjat, iatloc, ntemp, ja, id
    real(8)    :: r2
 
 ! ... set txnwtnwt, txctct, txptpt, and txatat
@@ -2185,6 +2185,29 @@ subroutine SetObjectParam2
          end do
       end if
    end if
+
+! ... assign particles new id, if titratable atoms exist, only for lmonoatom simulations
+
+      if (.not. allocated(ipGPU)) then
+         allocate(ipGPU(np_alloc))
+         allocate(ipCPU(np_alloc))
+         ipGPU = 0
+         ipCPU = 0
+      end if
+
+      id = 0
+      do ip=1, np
+            id = id +1
+         if (any(iananweakcharge == ip) == .false.) then
+            ipGPU(ip) = id
+            ipCPU(id) = ip
+         end if
+         if (latweakcharge(iatan(ip)) .and. jatweakcharge(iatan(ip)) > 0) then
+            id = id + 1
+            ipGPU(iananweakcharge(ip)) = id
+            ipCPU(id) = iananweakcharge(ip)
+         end if
+      end do
 
 ! ... calculate particle masses, masspt, and massipt
 
