@@ -1628,8 +1628,20 @@ module MolModule
 !! **default:** \ref npt*`0.0`
 !! * 0.5*\ref dtran is the maximal translational displacement of a particle along one box axis. Displacements are made along all box axes. If \ref dtran>0, square region, or if \ref dtran<0, spherical displacement region.
    real(8), allocatable       :: dtran(:)
+!> \page pspart
+!! `real`(1:\ref npt)
+!! **default:** \ref npt*`1.0`
+!! * Relative weight of a single-particle move. Further control is given by \ref dtran and \ref drot.
+   real(8), allocatable       :: pspart(:)
+!> \page pcharge
+!! `real`(1:\ref npt)
+!! **default:** \ref npt*`0.0`
+!! * Relative weight of charge-change move.
+   real(8), allocatable       :: pcharge(:)          ! probability of charge-change move
 
    integer(4), allocatable    :: ipGPU(:)
    integer(4), allocatable    :: ipCPU(:)
+
+   logical, allocatable       :: lcounterion(:)
 
 end module MolModule
