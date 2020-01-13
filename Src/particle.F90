@@ -2191,8 +2191,10 @@ subroutine SetObjectParam2
       if (.not. allocated(ipGPU)) then
          allocate(ipGPU(np_alloc))
          allocate(ipCPU(np_alloc))
+         allocate(lcounterion(np_alloc))
          ipGPU = 0
          ipCPU = 0
+         lcounterion = .false.
       end if
 
       id = 0
@@ -2206,6 +2208,7 @@ subroutine SetObjectParam2
             id = id + 1
             ipGPU(iananweakcharge(ip)) = id
             ipCPU(id) = iananweakcharge(ip)
+            lcounterion(id) = .true.
          end if
       end do
 
