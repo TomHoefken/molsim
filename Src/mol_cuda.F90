@@ -22,6 +22,7 @@ module mol_cuda
    logical,device                    :: lmonoatom_d
    real(fp_kind), device, allocatable       :: r2atat_d(:)     !
    integer(4), device, allocatable :: iptpn_d(:)     ! particle (1:np)               -> its particle type (1:npt)
+   integer(4), device, allocatable :: iptpn_aux_d(:)     ! particle (1:np)               -> its particle type (1:npt)
 
    integer(4),device, allocatable :: iptpt_d(:,:)   ! two particle types (1:npt)    -> particle type pair (1:nptpt)
 
@@ -117,6 +118,28 @@ module mol_cuda
    integer(k4b), device :: iseed_d
    integer(k4b), device :: iseed2_d = -1348
    integer(k4b), device :: iseed_trial_d
+
+   logical, device :: lcharge_d
+   logical, device :: lweakcharge_d
+   logical, device, allocatable :: laz_d(:)
+   logical, device, allocatable :: laz_aux_d(:)
+   logical, device, allocatable :: laztm_d(:)
+   logical, device, allocatable :: lspart_d(:)
+   logical, device, allocatable :: lchargechange_d(:)
+
+   real(fp_kind), device, allocatable :: pspart_d(:)
+   real(fp_kind), device, allocatable :: pcharge_d(:)
+   integer(4), device, allocatable :: iananweakcharge_d(:)
+   integer(4), device, allocatable :: iananweakcharge_aux_d(:)
+   logical, device, allocatable :: lcounterion_d(:)
+
+
+   real(fp_kind), device, allocatable :: weight_d(:)
+   real(fp_kind),         allocatable :: weight_laz(:)
+   real(fp_kind),         allocatable :: weight_nlaz(:)
+   real(fp_kind), device, allocatable :: weightd_laz(:)
+   real(fp_kind), device, allocatable :: weightd_nlaz(:)
+
 
 
 end module mol_cuda
