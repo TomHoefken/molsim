@@ -173,7 +173,7 @@ module MCModule
 !! `real`(1:\ref npt)
 !! **default:** \ref npt*`1.0`
 !! * Relative weight of a single-particle move. Further control is given by \ref dtran and \ref drot.
-   real(8), allocatable       :: pspart(:)
+!   real(8), allocatable       :: pspart(:)
 !> \page dtran
 !! `real`(1:\ref npt)
 !! **default:** \ref npt*`0.0`
@@ -431,7 +431,7 @@ module MCModule
 !! `real`(1:\ref npt)
 !! **default:** \ref npt*`0.0`
 !! * Relative weight of charge-change move.
-   real(8), allocatable       :: pcharge(:)          ! probability of charge-change move
+!   real(8), allocatable       :: pcharge(:)          ! probability of charge-change move
 
    logical                    :: lpspartsso          ! flag for single particle move sso  ! Pascal Hebbeker
    logical, allocatable       :: lssopt(:)           ! flag for single particle move sso of particle types  ! Pascal Hebbeker
@@ -1482,13 +1482,14 @@ subroutine MCPass(iStage)
 
    use MCModule
    use NListModule, only : drnlist, drosum
+   use Molmodule, only: iseed_trial
    implicit none
 
    integer(4), intent(in) :: iStage
 
    character(40), parameter :: txroutine ='MCPass'
    integer(4) :: ipt, ict
-   real(8)    :: Random, Random3, prandom, drnold, rchain
+   real(8)    :: Random, Random3, Random4, prandom, drnold, rchain
    logical :: lnonloc
 
    if (ltrace) call WriteTrace(2, txroutine, iStage)
@@ -1557,7 +1558,11 @@ subroutine MCPass(iStage)
       if (pspart(iptmove) > One - 1d-15) then
          call SPartMove(iStage)
       else
+#if defined (_TESTGPU_)
+         if(.not. lmcsep) prandom = Random4(iseed_trial)
+#else
          if(.not. lmcsep) prandom = Random(iseed)
+#endif
          call CallMove(prandom, iptmove, iStage)
       end if
 
