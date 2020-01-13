@@ -228,11 +228,11 @@ ifeq ($(ARCH), PGFORTRAN)
   OPT_SER  = -O3 -Mcuda -Mcuda=cc70 -Mpreprocess -DDOUBLE
   OPT_debug  := -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc -Mpreprocess -DDOUBLE
 
-OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash
+OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash #-Mcuda=maxregcount:64
   OPT_normal := $(OPT_format) -O3 -Mcuda=cc70
   # quick compilation:
   OPT_quick  := $(OPT_format) -O0
-  OPT_testGPU   := $(OPT_normal)
+  OPT_testGPU   := $(OPT_format) -O3
   # provide useful info at exceptions (use for debug):
   OPT_debug  := $(OPT_format) -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc
   # provides many warnings:
@@ -348,7 +348,7 @@ ifeq ($(CBIND), TRUE)                      #F03 c-bindings
     DEFINES_BASE += -D_NORMAL_
   endif
   ifeq ($(mode),debug)
-    DEFINES_BASE += -D_DEBUG_
+    DEFINES_BASE += -D_DEBUG_ -D_TESTGPU_
   endif
   ifeq ($(mode),warn)
     DEFINES_BASE += -D_WARN_
