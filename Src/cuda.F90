@@ -829,8 +829,11 @@ module CUDAModule
                         fac_metro = weight_d(id)*exp(-dured)
                         if (fac_metro > One_d) then
                            idecision = 1 !accepted
+#if defined (_TESTGPU_)
                         else if (fac_metro > Random_dev2(iseed2_d)) then
-                        !else if (fac_metro > pmetro(id)) then
+#else
+                        else if (fac_metro > pmetro(id)) then
+#endif
                            idecision = 1 ! accepted
                         else
                            idecision = 2 ! energy rejected
@@ -1025,9 +1028,10 @@ module CUDAModule
                            lhsoverlap(id) = .true.
                         end if
                         !call calcUTabplus(id,(j-1)*blockDim%x + i,rdist,usum)
-                        call CallcalcUTabnew(id,(j-1)*blockDim%x,rdist,usum)
+                        call CallcalcUTabnew(id,(j-1)*blockDim%x + i,rdist,usum)
                         !E_s = E_s + usum
-                        Etwo_s = Etwo_s + usum
+                        !Etwo_s = Etwo_s + usum
+                        Etwo_d(id) = Etwo_d(id) + usum
                         !Etwonew_s = Etwonew_s + usum
 
 
@@ -1037,10 +1041,12 @@ module CUDAModule
                         dz = rojz(i) - roz(id_int)
                         call PBCr2_cuda(dx,dy,dz,rdist)
                         !call calcUTabminus(id,(j-1)*blockDim%x + i,rdist,usum)
-                        call CallcalcUTabold(id,(j-1)*blockDim%x,rdist,usum)
+                        call CallcalcUTabold(id,(j-1)*blockDim%x + i,rdist,usum)
                         !E_s = E_s - usum
-                        Etwo_s = Etwo_s - usum
-                        Etwoold_s = Etwoold_s + usum
+                        !Etwo_s = Etwo_s - usum
+                        Etwo_d(id) = Etwo_d(id) - usum
+                        !Etwoold_s = Etwoold_s + usum
+                        Etwoold_d(id) = Etwoold_d(id) + usum
                   end do
                end if
             end do
