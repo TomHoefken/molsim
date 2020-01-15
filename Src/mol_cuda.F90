@@ -77,15 +77,19 @@ module mol_cuda
    real(fp_kind), device, allocatable :: bond_d_eq(:)
    real(fp_kind), device, allocatable :: bond_d_p(:)
    integer(4), device, allocatable :: bondnn_d(:,:)
+   integer(4), device, allocatable :: bondnn_aux_d(:,:)
    real(fp_kind) :: bond_aux
    logical, device :: lchain_d
    integer(4), device, allocatable :: ictpn_d(:)
+   integer(4), device, allocatable :: ictpn_aux_d(:)
    real(fp_kind), device, allocatable :: rsumrad(:,:)
    real(fp_kind), device :: clink_d_k
    real(fp_kind), device :: clink_d_eq
    real(fp_kind), device :: clink_d_p
    integer(4), device, allocatable :: bondcl_d(:,:)
+   integer(4), device, allocatable :: bondcl_aux_d(:,:)
    integer(4), device, allocatable :: nbondcl_d(:)
+   integer(4), device, allocatable :: nbondcl_aux_d(:)
    logical, device :: lclink_d
    real(fp_kind), allocatable :: rsumrad_h(:,:)
    real(fp_kind), device, allocatable :: sig(:)
@@ -139,6 +143,13 @@ module mol_cuda
    real(fp_kind),         allocatable :: weight_nlaz(:)
    real(fp_kind), device, allocatable :: weightd_laz(:)
    real(fp_kind), device, allocatable :: weightd_nlaz(:)
+
+   ! for CalcLoopShifts
+   integer(4), device, allocatable :: idmin_d(:)
+   integer(4), device, allocatable :: idmax_d(:)
+   integer(4),  allocatable :: idmin(:)
+   integer(4),  allocatable :: idmax(:)
+   integer(4),  allocatable :: idtemp(:)
 
 
 
