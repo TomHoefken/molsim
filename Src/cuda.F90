@@ -113,7 +113,9 @@ module CUDAModule
             call PrepareMC_cudaAll
             istat = cudaDeviceSynchronize()
             call TransferConstantParams
-
+            istat = cudaDeviceSynchronize()
+            call CalcLoopShifts
+            istat = cudaDeviceSynchronize()
          case (IBeforeSimulation)
 
             utot_d = u%tot
@@ -756,7 +758,7 @@ module CUDAModule
                else
                   ipartmax = iblock2_d*blocksize*ipart!np_s/nloop*ipart
                end if
-               id = ((blockIDx%x-1) * blocksize + threadIDx%x)+ipartmin
+               id = ((blockIDx%x-1) * blocksize + threadIDx%x)+idmin_d(ipart)
                id_int = threadIDx%x
 
                if (id <= np_s) then
@@ -800,6 +802,8 @@ module CUDAModule
                call syncthreads
 
          do i = 1+ipartmin, ipartmax
+            ipartmin = idmin_d(ipart)
+         !do i = 1 + idmin_d(ipart), idmax_d(ipart)
             !if (id == iananweakcharge_d(i)) Etwoold_d(id) = Etwoold_s
             !call syncthreads(gg)
             if (id == i) then
@@ -927,15 +931,15 @@ module CUDAModule
          implicit none
          integer(4)  ::numblocks
          integer(4)  ::numblocks_old
-         real(fp_kind),shared :: rox(256)
-         real(fp_kind),shared :: roy(256)
-         real(fp_kind),shared :: roz(256)
+         real(fp_kind) :: rox
+         real(fp_kind) :: roy
+         real(fp_kind) :: roz
          real(fp_kind),shared :: rojx(256)
          real(fp_kind),shared :: rojy(256)
          real(fp_kind),shared :: rojz(256)
-         real(fp_kind),shared :: rotmx(256)
-         real(fp_kind),shared :: rotmy(256)
-         real(fp_kind),shared :: rotmz(256)
+         real(fp_kind) :: rotmx
+         real(fp_kind) :: rotmy
+         real(fp_kind) :: rotmz
          real(fp_kind) :: rdist
          integer(4) :: iptip_s
          integer(4) :: iptjp_s(256)
@@ -949,6 +953,7 @@ module CUDAModule
          real(fp_kind)   :: dy
          real(fp_kind)   :: dz
          real(fp_kind), shared   :: rsumrad_s(16,16)
+         real(fp_kind) :: rsumrad_r
          logical, intent(inout)   :: lhsoverlap(np_d)
          integer(4) :: npt_s
          integer(4) :: id, id_int!,
@@ -964,22 +969,25 @@ module CUDAModule
          real(fp_kind) :: clinkeq_s
          real(fp_kind) :: clinkp_s
          real(fp_kind) :: usum
+         integer(4) :: ishift
 
          np_s = np_d
          numblocks = iblock2_d * ipart
          numblocks_old = iblock2_d * (ipart - 1) + 1
          npt_s = npt_d
+         ishift = iblock2_d*blockDim%x*(ipart-1) - idmin_d(ipart)
 
          do ipart_2 = ipart, nloop - 1
             id = ((blockIDx%x-1) * blockDim%x + threadIDx%x)+(iblock2_d*blockDim%x*ipart_2)
                id_int = threadIDx%x
                if (id <= np_s) then
-                  rotmx(id_int) = rotm_d(1,id)
-                  rotmy(id_int) = rotm_d(2,id)
-                  rotmz(id_int) = rotm_d(3,id)
-                  rox(id_int) = ro_d(1,id)
-                  roy(id_int) = ro_d(2,id)
-                  roz(id_int) = ro_d(3,id)
+               !if (id <= idmax_d(ipart_2+1)) then
+                  rotmx = rotm_d(1,id)
+                  rotmy = rotm_d(2,id)
+                  rotmz = rotm_d(3,id)
+                  rox = ro_d(1,id)
+                  roy = ro_d(2,id)
+                  roz = ro_d(3,id)
                   iptip_s = iptpn_d(id)
                   iptjp_s(id_int) = 0
                   !E_s = E_g(id)
@@ -1008,27 +1016,30 @@ module CUDAModule
 
             do j = numblocks_old, numblocks
                call syncthreads
-                  rojx(id_int) = ro_d(1,id_int+(j-1)*blockDim%x)
-                  rojy(id_int) = ro_d(2,id_int+(j-1)*blockDim%x)
-                  rojz(id_int) = ro_d(3,id_int+(j-1)*blockDim%x)
-                  iptjp_s(id_int) = iptpn_d(id_int+(j-1)*blockDim%x)
+                  jp = id_int+(j-1)*blockDim%x
+                  !rojx(id_int) = ro_d(1,id_int+(j-1)*blockDim%x)
+                  !rojy(id_int) = ro_d(2,id_int+(j-1)*blockDim%x)
+                  !rojz(id_int) = ro_d(3,id_int+(j-1)*blockDim%x)
+                  rojx(id_int) = ro_d(1,jp)
+                  rojy(id_int) = ro_d(2,jp)
+                  rojz(id_int) = ro_d(3,jp)
+                  !iptjp_s(id_int) = iptpn_d(id_int+(j-1)*blockDim%x)
+                  iptjp_s(id_int) = iptpn_d(jp)
                call syncthreads
                if (id <= np_s) then
                   do i=1, blocksize
+                     jp = i +(j-1)*blockDim%x
                      !new energy
-                        dx = rojx(i) - rotmx(id_int)
-                        dy = rojy(i) - rotmy(id_int)
-                        dz = rojz(i) - rotmz(id_int)
-                        !dx = ro_d(i+(j-1)*blocksize) - ro_d(id)
-                        !dy = ro_d(i+(j-1)*blocksize) - ro_d(id)
-                        !dz = ro_d(i+(j-1)*blocksize) - ro_d(id)
+                        dx = rojx(i) - rotmx
+                        dy = rojy(i) - rotmy
+                        dz = rojz(i) - rotmz
                         call PBCr2_cuda(dx,dy,dz,rdist)
-                        !if (rdist < rsumrad_s(iptip_s,iptjp_s(i))) then
                         if (rdist < rsumrad_s(iptip_s,iptpn_d(i+(j-1)*blockDim%x))) then
                            lhsoverlap(id) = .true.
                         end if
                         !call calcUTabplus(id,(j-1)*blockDim%x + i,rdist,usum)
-                        call CallcalcUTabnew(id,(j-1)*blockDim%x + i,rdist,usum)
+                        !call CallcalcUTabnew(id,(j-1)*blockDim%x + i,rdist,usum)
+                        call CallcalcUTabnew(id,jp,rdist,usum)
                         !E_s = E_s + usum
                         !Etwo_s = Etwo_s + usum
                         Etwo_d(id) = Etwo_d(id) + usum
@@ -1036,36 +1047,39 @@ module CUDAModule
 
 
                      !old energy
-                        dx = rojx(i) - rox(id_int)
-                        dy = rojy(i) - roy(id_int)
-                        dz = rojz(i) - roz(id_int)
+                        dx = rojx(i) - rox
+                        dy = rojy(i) - roy
+                        dz = rojz(i) - roz
                         call PBCr2_cuda(dx,dy,dz,rdist)
                         !call calcUTabminus(id,(j-1)*blockDim%x + i,rdist,usum)
-                        call CallcalcUTabold(id,(j-1)*blockDim%x + i,rdist,usum)
+                        !call CallcalcUTabold(id,(j-1)*blockDim%x + i,rdist,usum)
+                        call CallcalcUTabold(id,jp,rdist,usum)
                         !E_s = E_s - usum
                         !Etwo_s = Etwo_s - usum
                         Etwo_d(id) = Etwo_d(id) - usum
                         !Etwoold_s = Etwoold_s + usum
                         Etwoold_d(id) = Etwoold_d(id) + usum
+                     !end if
                   end do
                end if
             end do
             if (id <= np_s) then
+            !if (id <= idmax_d(ipart_2+1)) then
                if (ictpn_s /= 0) then
                   do q= 1, 2
                      if ((numblocks_old-1)*blockDim%x < bondnn_d(q,id) .and. numblocks*blockDim%x >= bondnn_d(q,id) ) then
                         jp = bondnn_d(q,id)
-                        dx = ro_d(1,jp) - rotmx(id_int)
-                        dy = ro_d(2,jp) - rotmy(id_int)
-                        dz = ro_d(3,jp) - rotmz(id_int)
+                        dx = ro_d(1,jp) - rotmx
+                        dy = ro_d(2,jp) - rotmy
+                        dz = ro_d(3,jp) - rotmz
                         call PBCr2_cuda(dx,dy,dz,rdist)
                         rdist = sqrt(rdist)
                         !E_s = E_s + bondk_s*(rdist - bondeq_s)**bondp_s
                         Ebond_s = Ebond_s + bondk_s*(rdist - bondeq_s)**bondp_s
 
-                        dx = ro_d(1,jp) - rox(id_int)
-                        dy = ro_d(2,jp) - roy(id_int)
-                        dz = ro_d(3,jp) - roz(id_int)
+                        dx = ro_d(1,jp) - rox
+                        dy = ro_d(2,jp) - roy
+                        dz = ro_d(3,jp) - roz
                         call PBCr2_cuda(dx,dy,dz,rdist)
                         rdist = sqrt(rdist)
                         !E_s = E_s - bondk_s*(rdist - bondeq_s)**bondp_s
@@ -1081,16 +1095,16 @@ module CUDAModule
                      do i=1,nbondcl_d(id)
                         if ((numblocks_old-1)*blockDim%x < bondcl_d(i,id).and. (numblocks*blockDim%x >= bondcl_d(i,id))) then
                            jp = bondcl_d(i,id)
-                           dx = ro_d(1,jp) - rotmx(id_int)
-                           dy = ro_d(2,jp) - rotmy(id_int)
-                           dz = ro_d(3,jp) - rotmz(id_int)
+                           dx = ro_d(1,jp) - rotmx
+                           dy = ro_d(2,jp) - rotmy
+                           dz = ro_d(3,jp) - rotmz
                            call PBCr2_cuda(dx,dy,dz,rdist)
                            !E_s = E_s + clinkk_s*(sqrt(rdist) - clinkeq_s)**clinkp_s
                            Eclink_s = Eclink_s + clinkk_s*(sqrt(rdist) - clinkeq_s)**clinkp_s
 
-                           dx = ro_d(1,jp) - rox(id_int)
-                           dy = ro_d(2,jp) - roy(id_int)
-                           dz = ro_d(3,jp) - roz(id_int)
+                           dx = ro_d(1,jp) - rox
+                           dy = ro_d(2,jp) - roy
+                           dz = ro_d(3,jp) - roz
                            call PBCr2_cuda(dx,dy,dz,rdist)
                            !E_s = E_s - clinkk_s*(sqrt(rdist) - clinkeq_s)**clinkp_s
                            Eclink_s = Eclink_s - clinkk_s*(sqrt(rdist) - clinkeq_s)**clinkp_s
@@ -1700,8 +1714,11 @@ subroutine AllocateDeviceParams
         allocate(seeds_d(np_alloc))
         write(*,*) "3"
         allocate(bondnn_d(2,np))
+        allocate(bondnn_aux_d(2,np))
         allocate(ictpn_d(np_alloc))
+        allocate(ictpn_aux_d(np_alloc))
         allocate(bondcl_d(4,np_alloc))
+        allocate(bondcl_aux_d(4,np_alloc))
         write(*,*) "4"
         allocate(rsumrad(npt,npt))
         write(*,*) "5"
@@ -1718,6 +1735,7 @@ subroutine AllocateDeviceParams
            bond_d_p = 0
         end if
         allocate(nbondcl_d(np_alloc))
+        allocate(nbondcl_aux_d(np_alloc))
         allocate(ix_d(np_alloc))
         allocate(iy_d(np_alloc))
         allocate(am_d(np_alloc))
@@ -1784,6 +1802,7 @@ subroutine TransferConstantParams
         iinteractions_d = iinteractions
         lchain_d = lchain
         ictpn_d = ictpn
+        ictpn_aux_d = ictpn
         lcharge_d = lcharge
         lweakcharge_d = lweakcharge
         if (lweakcharge) iananweakcharge_aux_d = iananweakcharge
@@ -1797,6 +1816,7 @@ subroutine TransferConstantParams
               bond_d_p(ict) = bond(ict)%p
            end do
            bondnn_d = bondnn
+           bondnn_aux_d = bondnn
         end if
 
         lclink_d = lclink
@@ -1805,7 +1825,8 @@ subroutine TransferConstantParams
         clink_d_eq = clink%eq
         clink_d_p = clink%p
         bondcl_d = bondcl
-        nbondcl_d = nbondcl
+        bondcl_aux_d = bondcl
+        nbondcl_aux_d = nbondcl
    end if
         lcuda = .true.
         lseq = .true.
@@ -1849,7 +1870,7 @@ end subroutine TransferConstantParams
 attributes(global) subroutine TransferCoordinatesToDevice
 
    implicit none
-   integer(4) :: id
+   integer(4) :: id, i, j
 
    id = (blockidx%x-1)*blocksize + threadIDx%x
    if (id <= np_d ) then
@@ -1859,10 +1880,79 @@ attributes(global) subroutine TransferCoordinatesToDevice
       if(lweakcharge_d) laz_d(ipGPU_d(id)) = laz_aux_d(id)
       iptpn_d(ipGPU_d(id)) = iptpn_aux_d(id)
       iananweakcharge_d(ipGPU_d(id)) = ipGPU_d(iananweakcharge_aux_d(id))
+      ictpn_d(ipGPU_d(id)) = ictpn_aux_d(id)
+      if (lchain_d) then
+         do i = 1, 2
+            bondnn_d(i,ipGPU_d(id)) = ipGPU_d(bondnn_aux_d(i,id))
+         end do
+      end if
+      if (lclink_d) then
+         nbondcl_d(ipGPU_d(id)) = nbondcl_aux_d(id)
+         do j = 1, 4
+            bondcl_d(j,ipGPU_d(id)) = ipGPU_d(bondcl_d(j,id))
+         end do
+      end if
    end if
 
 
 end subroutine TransferCoordinatesToDevice
+
+
+subroutine CalcLoopShifts
+
+   implicit none
+   integer(4) :: i, j
+   integer(4) :: ishift
+
+   allocate(idmin(iloops))
+   allocate(idmax(iloops))
+   idmin = 0
+   idmax = 0
+   ishift = 0
+   do i = 1, iloops
+      idmin(i) = 20480*(i-1) - ishift
+      if (20480*i <= np) then
+         print *, iptpn(20480)
+         print *, 20480*i - ishift
+         print *, ipGPU(20480*i - ishift)
+         if (latweakcharge(iptpn(ipCPU(20480*i - ishift)))) then
+            ishift = ishift + 1
+         endif
+      end if
+      idmax(i) = 20480*i - ishift
+   end do
+   if (idmax(iloops) > np) then
+      idmax(iloops) = np
+   else
+      allocate(idtemp(iloops))
+      idtemp = 0.0
+      idtemp = idmin
+      deallocate(idmin)
+      iloops = iloops + 1
+      allocate(idmin(iloops))
+      idmin = 0.0
+      idmin = idtemp
+      idmin(iloops) = idmax(iloops-1)
+      idtemp = 0.0
+      idtemp = idmax
+      deallocate(idmax)
+      allocate(idmax(iloops))
+      idmax = idtemp
+      idmax(iloops) = np
+      iloops_d = iloops
+      iblock2 = ceiling(real(iblock1)/iloops)
+      iblock2_d = iblock2
+      deallocate(idtemp)
+   end if
+   print *, idmin(1), idmax(1)
+   print *, idmin(2), idmax(2)
+   allocate(idmin_d(iloops))
+   allocate(idmax_d(iloops))
+   idmin_d = idmin
+   idmax_d = idmax
+
+
+end subroutine CalcLoopShifts
 
 
 subroutine TransferDUTotalVarToDevice
