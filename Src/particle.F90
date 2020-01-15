@@ -2197,19 +2197,34 @@ subroutine SetObjectParam2
          lcounterion = .false.
       end if
 
+! at first the particles with weak charge
       id = 0
-      do ip=1, np
-            id = id +1
-         if (any(iananweakcharge == ip) == .false.) then
-            ipGPU(ip) = id
-            ipCPU(id) = ip
+      if (lweakcharge) then
+         do ip=1, np
+               if (.not. latweakcharge(iptpn(ip))) cycle
+               id = id +1
+               if (any(iananweakcharge == ip) == .false.) then
+                  ipGPU(ip) = id
+                  ipCPU(id) = ip
+               end if
+               if (latweakcharge(iatan(ip)) .and. jatweakcharge(iatan(ip)) > 0) then
+                  id = id + 1
+                  ipGPU(iananweakcharge(ip)) = id
+                  ipCPU(id) = iananweakcharge(ip)
+                  lcounterion(id) = .true.
+               end if
+         end do
+      end if
+
+! then over particles
+
+      do ip = 1, np
+         if (lweakcharge) then
+            if (latweakcharge(iptpn(ip)) .or. any(iananweakcharge == ip)) cycle
          end if
-         if (latweakcharge(iatan(ip)) .and. jatweakcharge(iatan(ip)) > 0) then
-            id = id + 1
-            ipGPU(iananweakcharge(ip)) = id
-            ipCPU(id) = iananweakcharge(ip)
-            lcounterion(id) = .true.
-         end if
+         id = id + 1
+         ipGPU(ip) = id
+         ipCPU(id) = ip
       end do
 
 ! ... calculate particle masses, masspt, and massipt
