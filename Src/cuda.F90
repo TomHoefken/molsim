@@ -172,13 +172,14 @@ module CUDAModule
          ro = ro_aux
          r = ro
          laz = laz_aux_d
-         do ip = 1, np
-            if (laz(ip)) then
-               az(ip) = zat(iatan(ip))
-            else
-               az(ip) = Zero
-            end if
-         end do
+         az = az_d
+         !do ip = 1, np
+         !   if (laz(ip)) then
+         !      az(ip) = zat(iatan(ip))
+         !   else
+         !      az(ip) = Zero
+         !   end if
+         !end do
 
       end subroutine MCCudaUpdate
 
@@ -239,6 +240,8 @@ module CUDAModule
                   ierra = cudaDeviceSynchronize()
                call TransferToAux<<<iblock1,256>>>
                   ierra = cudaDeviceSynchronize()
+               if (lweakcharge) call GetCharge<<<iblock1,256>>>
+                  ierra = cudaDeviceSynchronize()
 
       end subroutine MCPassAllGPU
 
@@ -257,6 +260,22 @@ module CUDAModule
          end if
 
       end subroutine TransferToAux
+
+      attributes(global) subroutine GetCharge
+
+         implicit none
+         integer(4) :: id
+
+         id = (blockidx%x-1)*blocksize + threadIDx%x
+         if (id <= np_d) then
+            if (laz_aux_d(id)) then
+               az_d(id) = zat_d(iptpn_aux_d(id))
+            else
+               az_d(id) = Zero_d
+            end if
+         end if
+
+      end subroutine GetCharge
 
       subroutine PrepareMC_cudaAll
 
@@ -1741,6 +1760,8 @@ subroutine AllocateDeviceParams
         allocate(laz_d(na_alloc))
         allocate(laz_aux_d(na_alloc))
         allocate(laztm_d(na_alloc))
+        allocate(az_d(na_alloc))
+        allocate(zat_d(nat))
         allocate(lspart_d(np_alloc))
         allocate(lchargechange_d(np_alloc))
         allocate(pspart_d(npt))
@@ -1805,6 +1826,8 @@ subroutine TransferConstantParams
         lweakcharge_d = lweakcharge
         if (lweakcharge) iananweakcharge_aux_d = iananweakcharge
         if (lweakcharge) lcounterion_d = lcounterion
+        az_d = az
+        zat_d = zat
         pspart_d = pspart
         pcharge_d = pcharge
         if (lchain) then
