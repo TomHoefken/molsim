@@ -2439,6 +2439,7 @@ subroutine SetNetworkPos(shiftxyz, radgel, bondlen, npstrand, nnode, ronodeout, 
    real(8),    intent(out) :: rostrandout(3,np_alloc) ! coordinates of strand particles for output
    integer(4), intent(out) :: nclnode                 ! number of crosslinks of a node (diamond: nclnode = 4)
 
+
    character(40), parameter :: txroutine ='SetNetworkPos'
 
 !  ... network parameters
@@ -2476,9 +2477,9 @@ subroutine SetNetworkPos(shiftxyz, radgel, bondlen, npstrand, nnode, ronodeout, 
    call SetDiamond(nlp,rol,oril)                   ! get diamond unit cell informations
 
  ! ... shift coordinates of diamond lattice
-   rol(1,1:8) = modulo(rol(1,1:8)+1-shiftxyz(1),1.0)
-   rol(2,1:8) = modulo(rol(2,1:8)+1-shiftxyz(2),1.0)
-   rol(3,1:8) = modulo(rol(3,1:8)+1-shiftxyz(3),1.0)
+   rol(1,1:8) = modulo(real(rol(1,1:8)+1-shiftxyz(1)),1.0)
+   rol(2,1:8) = modulo(real(rol(2,1:8)+1-shiftxyz(2)),1.0)
+   rol(3,1:8) = modulo(real(rol(3,1:8)+1-shiftxyz(3)),1.0)
 
    radgel2 = radgel**2                             ! network radius squared
    celllen = Four*sqrt(Third)*bondlen*(npstrand+1) ! length of one cubic unit cell
@@ -2525,8 +2526,11 @@ subroutine SetNetworkPos(shiftxyz, radgel, bondlen, npstrand, nnode, ronodeout, 
                if(sum(ronode(1:3,iploc)**2) > radgel2) cycle    ! restrict to inside radgel
                nnode = nnode + 1                                ! update nnode
 
-! ... set strand particles
+#if defined (_CUDA_)
+               if (iploc == 0) print *, "node: ", ronode(1,iploc), iploc ! prevent incorrect optimizations by pgfortran
+#endif
 
+! ... set strand particles
                do idir = 1, 4                                   ! loop over all four directions from each node particle
      segment:     do iseg = 1, npstrand                         ! loop over all particles of each chain
                   jploc = npart_strand+1
