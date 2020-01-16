@@ -758,7 +758,7 @@ module CUDAModule
                else
                   ipartmax = iblock2_d*blocksize*ipart!np_s/nloop*ipart
                end if
-               id = ((blockIDx%x-1) * blocksize + threadIDx%x)+idmin_d(ipart)
+               id = ((blockIDx%x-1) * blocksize + threadIDx%x)+ipartmin
                id_int = threadIDx%x
 
                if (id <= np_s) then
@@ -802,7 +802,6 @@ module CUDAModule
                call syncthreads
 
          do i = 1+ipartmin, ipartmax
-            ipartmin = idmin_d(ipart)
          !do i = 1 + idmin_d(ipart), idmax_d(ipart)
             !if (id == iananweakcharge_d(i)) Etwoold_d(id) = Etwoold_s
             !call syncthreads(gg)
@@ -975,7 +974,6 @@ module CUDAModule
          numblocks = iblock2_d * ipart
          numblocks_old = iblock2_d * (ipart - 1) + 1
          npt_s = npt_d
-         ishift = iblock2_d*blockDim%x*(ipart-1) - idmin_d(ipart)
 
          do ipart_2 = ipart, nloop - 1
             id = ((blockIDx%x-1) * blockDim%x + threadIDx%x)+(iblock2_d*blockDim%x*ipart_2)
@@ -1016,19 +1014,19 @@ module CUDAModule
 
             do j = numblocks_old, numblocks
                call syncthreads
-                  jp = id_int+(j-1)*blockDim%x
-                  !rojx(id_int) = ro_d(1,id_int+(j-1)*blockDim%x)
-                  !rojy(id_int) = ro_d(2,id_int+(j-1)*blockDim%x)
-                  !rojz(id_int) = ro_d(3,id_int+(j-1)*blockDim%x)
-                  rojx(id_int) = ro_d(1,jp)
-                  rojy(id_int) = ro_d(2,jp)
-                  rojz(id_int) = ro_d(3,jp)
+                  !jp = id_int+(j-1)*blockDim%x
+                  rojx(id_int) = ro_d(1,id_int+(j-1)*blockDim%x)
+                  rojy(id_int) = ro_d(2,id_int+(j-1)*blockDim%x)
+                  rojz(id_int) = ro_d(3,id_int+(j-1)*blockDim%x)
+                  !rojx(id_int) = ro_d(1,jp)
+                  !rojy(id_int) = ro_d(2,jp)
+                  !rojz(id_int) = ro_d(3,jp)
                   !iptjp_s(id_int) = iptpn_d(id_int+(j-1)*blockDim%x)
-                  iptjp_s(id_int) = iptpn_d(jp)
+                  !iptjp_s(id_int) = iptpn_d(jp)
                call syncthreads
                if (id <= np_s) then
                   do i=1, blocksize
-                     jp = i +(j-1)*blockDim%x
+                     !jp = i +(j-1)*blockDim%x
                      !new energy
                         dx = rojx(i) - rotmx
                         dy = rojy(i) - rotmy
@@ -1038,8 +1036,8 @@ module CUDAModule
                            lhsoverlap(id) = .true.
                         end if
                         !call calcUTabplus(id,(j-1)*blockDim%x + i,rdist,usum)
-                        !call CallcalcUTabnew(id,(j-1)*blockDim%x + i,rdist,usum)
-                        call CallcalcUTabnew(id,jp,rdist,usum)
+                        call CallcalcUTabnew(id,(j-1)*blockDim%x + i,rdist,usum)
+                        !call CallcalcUTabnew(id,jp,rdist,usum)
                         !E_s = E_s + usum
                         !Etwo_s = Etwo_s + usum
                         Etwo_d(id) = Etwo_d(id) + usum
@@ -1052,8 +1050,8 @@ module CUDAModule
                         dz = rojz(i) - roz
                         call PBCr2_cuda(dx,dy,dz,rdist)
                         !call calcUTabminus(id,(j-1)*blockDim%x + i,rdist,usum)
-                        !call CallcalcUTabold(id,(j-1)*blockDim%x + i,rdist,usum)
-                        call CallcalcUTabold(id,jp,rdist,usum)
+                        call CallcalcUTabold(id,(j-1)*blockDim%x + i,rdist,usum)
+                        !call CallcalcUTabold(id,jp,rdist,usum)
                         !E_s = E_s - usum
                         !Etwo_s = Etwo_s - usum
                         Etwo_d(id) = Etwo_d(id) - usum
