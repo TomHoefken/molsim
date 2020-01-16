@@ -128,6 +128,8 @@ module mol_cuda
    logical, device, allocatable :: laz_d(:)
    logical, device, allocatable :: laz_aux_d(:)
    logical, device, allocatable :: laztm_d(:)
+   real(fp_kind), device, allocatable :: az_d(:)
+   real(fp_kind), device, allocatable :: zat_d(:)
    logical, device, allocatable :: lspart_d(:)
    logical, device, allocatable :: lchargechange_d(:)
 
