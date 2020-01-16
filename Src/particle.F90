@@ -113,7 +113,7 @@ module ParticleModule
       integer(4)  :: np  !number of particles
    end type block_type
 
-!> \page rep_block_ict
+!> \page rep_iblock_ict
 !! `block_type`(1:pt,1:np)
 !! **default:** pt*np*`0`
 !! * Particle type and number of particles in in each block and chain type.
@@ -153,7 +153,7 @@ end module ParticleModule
 !! The namelist \ref nmlRepeating contains variables that define the repeating block structure of copolymers. The copolymers consist of
 !! repeating units, each consisting of blocks of one particle type.
 !! * Variables:
-!!  * \subpage rep_block_ict
+!!  * \subpage rep_iblock_ict
 
 !************************************************************************
 !> \page particle particle.F90
