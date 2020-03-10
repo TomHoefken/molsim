@@ -431,7 +431,8 @@ OBJS1=mol.o            \
 ifeq ($(ARCH), PGFORTRAN)
 OBJS1+= precision_m.o  \
 	mol_cuda.o     \
-	cuda.o
+	cuda.o	       \
+	ewald_cuda.o
 endif
 
 OBJS2=$(OBJS1:.o=_par.o)
@@ -499,7 +500,7 @@ ifeq ($(ARCH), PGFORTRAN)
 cuda.o:           mol.o mol_cuda.o precision_m.o
 endif
 ifeq ($(ARCH), PGFORTRAN)
-denergy.o:        mol.o energy.o mollib.o celllist.o cuda.o
+denergy.o:        mol.o energy.o mollib.o celllist.o cuda.o ewald_cuda.o
 else
 denergy.o:        mol.o energy.o mollib.o celllist.o
 endif
@@ -514,6 +515,9 @@ else
 energy.o:         mol.o mollib.o celllist.o
 endif
 energy_par.o:     mol_par.o mollib_par.o celllist_par.o
+ifeq ($(ARCH), PGFORTRAN)
+ewald_cuda.o:     mol.o cuda.o
+endif
 group.o:          mol.o
 group_par.o:      mol_par.o
 image.o:          mol.o mollib.o
