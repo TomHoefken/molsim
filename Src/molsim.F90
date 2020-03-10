@@ -75,10 +75,10 @@ program MolsimDriver
    call PotentialDriver(iWriteInput)
    call IOCnf('open')
    if (.not.lmix) call Coordinate(iWriteInput)
+   call MolsimDriverSub(iWriteInput)
 #if defined (_CUDA_)
    call GPUDriver(iWriteInput)
 #endif
-   call MolsimDriverSub(iWriteInput)
 
 ! ............... initiate simulation ................
 
