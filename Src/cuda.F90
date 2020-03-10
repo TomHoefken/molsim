@@ -1712,10 +1712,11 @@ subroutine AllocateDeviceParams
         allocate(r2atat_d(natat))
         allocate(iubuflow_d(natat))
         !allocate(nneighpn_d(np_alloc))
-        write(*,*) "1"
+        !write(*,*) "1"
         allocate(iptpn_d(np_alloc))
         allocate(iptpn_aux_d(np_alloc))
         allocate(ubuf_d(nbuf))
+        allocate(ianatm_d(na_alloc))
         allocate(rotm_d(3,np_alloc))
         allocate(lptm_d(np_alloc))
         allocate(ipnptm_d(np_alloc))
@@ -1724,25 +1725,25 @@ subroutine AllocateDeviceParams
         allocate(utwobold_d(0:nptpt))
         allocate(dutwobold(0:nptpt))
         allocate(ucoff_d(natat))
-        write(*,*) "2"
-        write(*,*) "1"
+        !write(*,*) "2"
+        !write(*,*) "1"
         allocate(seedsnp(np_alloc))
-        write(*,*) "2"
+        !write(*,*) "2"
         allocate(seeds_d(np_alloc))
-        write(*,*) "3"
+        !write(*,*) "3"
         allocate(bondnn_d(2,np))
         allocate(bondnn_aux_d(2,np))
         allocate(ictpn_d(np_alloc))
         allocate(ictpn_aux_d(np_alloc))
         allocate(bondcl_d(4,np_alloc))
         allocate(bondcl_aux_d(4,np_alloc))
-        write(*,*) "4"
+        !write(*,*) "4"
         allocate(rsumrad(npt,npt))
-        write(*,*) "5"
+        !write(*,*) "5"
         allocate(rsumrad_h(npt,npt))
-        write(*,*) "6"
+        !write(*,*) "6"
         allocate(dtran_d(npt))
-        write(*,*) "7"
+        !write(*,*) "7"
         if (lchain) then
            allocate(bond_d_k(nct))
            bond_d_k = 0.0
@@ -1756,6 +1757,7 @@ subroutine AllocateDeviceParams
         allocate(ix_d(np_alloc))
         allocate(iy_d(np_alloc))
         allocate(am_d(np_alloc))
+        ! parameters for weakcharge
         allocate(ipGPU_d(np_alloc))
         allocate(laz_d(na_alloc))
         allocate(laz_aux_d(na_alloc))
@@ -1775,6 +1777,7 @@ subroutine AllocateDeviceParams
         allocate(weight_nlaz(np_alloc))
         allocate(weightd_laz(np_alloc))
         allocate(weightd_nlaz(np_alloc))
+
    if(ltime) call CpuAdd('stop', 'allocation', 1, uout)
 
 
@@ -1849,6 +1852,8 @@ subroutine TransferConstantParams
         bondcl_aux_d = bondcl
         nbondcl_aux_d = nbondcl
    end if
+        kvecmyid_d = kvecmyid
+        kvecoffmyid_d = kvecoffmyid
         lcuda = .true.
         lseq = .true.
         lcuda_mcpass = .false.
@@ -1884,7 +1889,7 @@ subroutine TransferConstantParams
         !call TransferToAux<<<iblock1,256>>>
                   ierra = cudaDeviceSynchronize()
         if(lweakcharge_d) laztm_d = laz_d
-        print *, "8"
+        !print *, "8"
 
 end subroutine TransferConstantParams
 
@@ -1933,9 +1938,9 @@ subroutine CalcLoopShifts
    do i = 1, iloops
       idmin(i) = 20480*(i-1) - ishift
       if (20480*i <= np) then
-         print *, iptpn(20480)
-         print *, 20480*i - ishift
-         print *, ipGPU(20480*i - ishift)
+         !print *, iptpn(20480)
+         !print *, 20480*i - ishift
+         !print *, ipGPU(20480*i - ishift)
          if (latweakcharge(iptpn(ipCPU(20480*i - ishift)))) then
             ishift = ishift + 1
          endif
@@ -1965,8 +1970,8 @@ subroutine CalcLoopShifts
       iblock2_d = iblock2
       deallocate(idtemp)
    end if
-   print *, idmin(1), idmax(1)
-   print *, idmin(2), idmax(2)
+   !print *, idmin(1), idmax(1)
+   !print *, idmin(2), idmax(2)
    allocate(idmin_d(iloops))
    allocate(idmax_d(iloops))
    idmin_d = idmin
@@ -2117,6 +2122,17 @@ end subroutine
          if (iy < 0) iy=iy+im
          Random_int = ceiling(a+(b-a)*am*ior(iand(im,ieor(ix,iy)),1))     !combine the two generators with masking to ensure nonzero value.
       end function Random_int
+
+
+
+
+
+
+
+
+
+
+
 
       attributes(global) subroutine ConvertCoordinatesAuxToDevice
 
