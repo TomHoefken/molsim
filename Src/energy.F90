@@ -6605,6 +6605,9 @@ subroutine EwaldSetup
 # else
    use EnergyModule
 # endif
+#if defined (_CUDA_)
+   use CUDAModule
+#endif
    implicit none
 
    character(40), parameter :: txroutine ='EwaldSetup'
@@ -6618,6 +6621,7 @@ subroutine EwaldSetup
 
 ! ... determination of lq2sum and q2sum (for error analysis)
 
+   print *, "start setup"
    q2sum = sum(zat(iatan(1:na))**2)/np
    if (q2sum > Zero) then
       lq2sum = 0                                   ! system contains charges
@@ -6730,6 +6734,7 @@ subroutine EwaldSetup
       allocate(sumeikrd(nkvec,4), stat = ierr)
       sumeikrd = cmplx(Zero,Zero)
 
+
       if(lmc .or. lmcall) then
           allocate(eikxtm(naewald,0:ncut),eikytm(naewald,0:ncut), eikztm(naewald,0:ncut), stat = ierr)
           eikxtm = cmplx(Zero,Zero)
@@ -6760,6 +6765,7 @@ subroutine EwaldSetup
       end if
 
 ! ... determine nkvec and kfac for the reciprocal space
+      print *, "during setup"
 
       nkvec = 0
       fac0 = TwoPi/vol
@@ -6781,6 +6787,22 @@ subroutine EwaldSetup
             end do
          end do
       end do
+#if defined (_CUDA_)
+          allocate(eikxtm_d(naewald,0:ncut),eikytm_d(naewald,0:ncut), eikztm_d(naewald,0:ncut), stat = ierr)
+          allocate(eikx_d(naewald,0:ncut),eiky_d(naewald,0:ncut), eikz_d(naewald,0:ncut), stat = ierr)
+          allocate(eikyzm_d(naewald), eikyzp_d(naewald), stat = ierr)
+          allocate(eikyzmtm_d(naewald), eikyzptm_d(naewald), stat = ierr)
+          allocate(eikrtm_d(naewald,4), stat = ierr)
+          allocate(sumeikr_d(nkvec,4), stat = ierr)
+          allocate(sumeikrtm_d(nkvec,4), stat = ierr)
+          allocate(kfac_d(nkvec), stat = ierr)
+          allocate(rtm_d(3,na_alloc))
+          allocate(TwoPiBoxi_d(3))
+          TwoPiBoxi_d = TwoPiBoxi
+          ncut_d = ncut
+          ncut2_d = ncut2
+          kfac_d = kfac
+#endif
 
       if (lewald2dlc) then
 
