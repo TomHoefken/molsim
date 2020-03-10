@@ -153,6 +153,39 @@ module mol_cuda
    integer(4),  allocatable :: idmax(:)
    integer(4),  allocatable :: idtemp(:)
 
+   ! for Ewald Summation
+   complex(fp_kind), device, allocatable :: eikxtm_d(:,:)
+   complex(fp_kind), device, allocatable :: eikytm_d(:,:)
+   complex(fp_kind), device, allocatable :: eikztm_d(:,:)
+
+   complex(8), device, allocatable :: eikyzmtm_d(:)    ! exp(-iky)*exp(ikz), trial configuration, temporary use
+   complex(8), device, allocatable :: eikyzptm_d(:)    ! exp(+iky)*exp(ikz), trial configuration, temporary use
+   complex(8), device, allocatable :: eikrtm_d(:,:)    ! temporary use
+   complex(8), device, allocatable :: sumeikrtm_d(:,:) ! sum(q*exp(sx*ikx)*exp(sx*iky)*exp(ikz), trial configuration (sx,sy) = (-1,-1),(-1,1),(1,-1),(1,1)
+
+   real(8), device,   allocatable :: kfac_d(:)        ! factor for k-summation
+   complex(8), device, allocatable :: eikx_d(:,:)      ! exp(ikx)
+   complex(8), device, allocatable :: eiky_d(:,:)      ! exp(iky)
+   complex(8), device, allocatable :: eikz_d(:,:)      ! exp(ikz)
+   complex(8), device, allocatable :: eikyzm_d(:)      ! exp(-iky)*exp(ikz), temporary use
+   complex(8), device, allocatable :: eikyzp_d(:)      ! exp(+iky)*exp(ikz), temporary use
+   complex(8), device, allocatable :: eikr_d(:,:)      ! temporary use
+   complex(8), device, allocatable :: sumeikr_d(:,:)   ! sum(q*exp(sx*ikx)*exp(sy*iky)*exp(ikz)) (sx,sy) = (-1,-1),(-1,1),(1,-1),(1,1)
+   complex(8), device, allocatable :: sumeikrd_d(:,:)  ! as sumeikr but also includes dipoles
+
+
+
+
+   real(fp_kind), device, allocatable    :: rtm_d(:,:)
+   real(fp_kind), device, allocatable    :: TwoPiBoxi_d(:)
+   integer(4), device :: natm_d
+   integer(4), device, allocatable :: ianatm_d(:)
+   integer(4), device :: ncut_d
+   integer(4), device :: ncut2_d
+   integer(4), device :: kvecmyid_d(2)
+   integer(4), device :: kvecoffmyid_d
+   real(fp_kind), device :: durec_d
+
 
 
 end module mol_cuda
