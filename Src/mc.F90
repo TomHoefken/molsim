@@ -5183,7 +5183,7 @@ subroutine Metropolis(lboxoverlap, lhsoverlap, lhepoverlap, weight, dured)
    real(8), intent(in)  :: dured       ! reduced energy difference
 
    character(40), parameter :: txroutine ='Metropolis'
-   real(8) :: fac
+   real(8) :: fac, rtest
    real(8) :: Random, Random2
 
    if (lboxoverlap) then
@@ -5202,10 +5202,14 @@ subroutine Metropolis(lboxoverlap, lhsoverlap, lhepoverlap, weight, dured)
       end if
    else
       fac = weight*exp(-dured)
+#if defined (_TESTGPU_) || defined (_CUDA_)
+      if (fac < One - ddelta) rtest = Random2(iseed_test1)
+#endif
       if (fac > One) then
          ievent = imcaccept
-#if defined (_TESTGPU_)
-      else if (fac > Random2(iseed_test1)) then
+#if defined (_TESTGPU_) || defined (_CUDA_)
+      !else if (fac > Random2(iseed_test1)) then
+      else if (fac > rtest) then
 #else
       else if (fac > Random(iseed)) then
 #endif
@@ -5214,7 +5218,7 @@ subroutine Metropolis(lboxoverlap, lhsoverlap, lhepoverlap, weight, dured)
          ievent = imcreject
       end if
    end if
-
+      print *, "ievent: ", ievent, exp(-dured), rtest
 !  call TestMetropolis(uout)
 
 contains
