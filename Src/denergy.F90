@@ -264,8 +264,6 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
 #if defined (_CUDA_)
    call startUTwoBodyAAll(lhsoverlap)
 #else
-
-
    call utwobodynew(lhsoverlap,jp)                ! calculate new two-body potential energy
 #endif
 
@@ -1251,6 +1249,10 @@ end subroutine UTwoBodyPOld
 subroutine DUTwoBodyEwald
 
    use EnergyModule
+#if defined (_CUDA_)
+   use CUDAModule
+   use EwaldCudaModule
+#endif
    implicit none
 
    character(40), parameter :: txroutine ='DUTwoBodyEwald'
@@ -1264,7 +1266,26 @@ subroutine DUTwoBodyEwald
 ! ... calculate
 
    if (txewaldrec == 'std') then
+#if defined (_CUDA_)
+      rtm_d = rtm
+      natm_d = natm
+      ianatm_d = ianatm
+      durec_d = Zero
+      eikx_d = eikx
+      eiky_d = eiky
+      eikz_d = eikz
+      sumeikr_d = sumeikr
+      az_d = az
+      call DUTwoBodyEwaldRecStd_cuda<<<1,1>>>
+      eikxtm = eikxtm_d
+      eikytm = eikytm_d
+      eikztm = eikztm_d
+      sumeikrtm = sumeikrtm_d
+      du%rec = durec_d
+#else
        call DUTwoBodyEwaldRecStd
+#endif
+      print *, du%rec
        if (lewald2dlc) call DUTwoBodyEwaldRec2dlc
    else if (txewaldrec == 'spm') then
        call DUTwoBodyEwaldRecSPM
@@ -1284,6 +1305,8 @@ contains
 !........................................................................
 
 subroutine DUTwoBodyEwaldRecStd
+
+   implicit none
    character(40), parameter :: txroutine ='UEwaldRecStd'
    integer(4) :: kn, nx, ny, nz, ia, ialoc, ikvec2
    real(8)    :: term, termnew, termold
@@ -1291,7 +1314,6 @@ subroutine DUTwoBodyEwaldRecStd
    if (ltime) call CpuAdd('start', txroutine, 3, uout)
 
 ! ... calculate eikxtm, eikytm, and eikztm for moving particles
-
    call EwaldSetArrayTM
 
    kn = kvecoffmyid
@@ -1300,6 +1322,7 @@ subroutine DUTwoBodyEwaldRecStd
       do ny = 0, ncut
          if (ny**2+nz**2 > ncut2) cycle
          ikvec2 = ikvec2+1
+         !print *, ikvec2
          if (ikvec2 < kvecmyid(1) .or. ikvec2 > kvecmyid(2)) cycle  ! parallelize over k-vectors
          do ialoc = 1, natm
             ia = ianatm(ialoc)
@@ -1344,6 +1367,8 @@ subroutine DUTwoBodyEwaldRecStd
    if (ltime) call CpuAdd('stop', txroutine, 3, uout)
 
 end subroutine DUTwoBodyEwaldRecStd
+
+
 
 !........................................................................
 
