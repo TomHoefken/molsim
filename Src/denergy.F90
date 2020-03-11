@@ -1254,6 +1254,7 @@ subroutine DUTwoBodyEwald
    use EwaldCudaModule
 #endif
    implicit none
+   integer(4) :: ierr, ierra
 
    character(40), parameter :: txroutine ='DUTwoBodyEwald'
 
@@ -1267,21 +1268,33 @@ subroutine DUTwoBodyEwald
 
    if (txewaldrec == 'std') then
 #if defined (_CUDA_)
-      rtm_d = rtm
+   ierra = cudaDeviceSynchronize()
+   if (ltime) call CpuAdd('start', 'transfernatm', 3, uout)
+      rtm_d(1:3,1:natm) = rtm(1:3,1:natm)
       natm_d = natm
       ianatm_d = ianatm
       durec_d = Zero
-      eikx_d = eikx
-      eiky_d = eiky
-      eikz_d = eikz
-      sumeikr_d = sumeikr
       az_d = az
-      call DUTwoBodyEwaldRecStd_cuda<<<1,1>>>
-      eikxtm = eikxtm_d
-      eikytm = eikytm_d
-      eikztm = eikztm_d
-      sumeikrtm = sumeikrtm_d
+            !ierra = cudaDeviceSynchronize()
+   ierra = cudaDeviceSynchronize()
+   if (ltime) call CpuAdd('stop', 'transfernatm', 3, uout)
+   if (ltime) call CpuAdd('start', 'duewaldr', 3, uout)
+      call DUTwoBodyEwaldRecStd_cuda_par<<<1,1024>>>
+   ierra = cudaDeviceSynchronize()
+   if (ltime) call CpuAdd('stop', 'duewaldr', 3, uout)
+   if (ltime) call CpuAdd('start', 'transfereik', 3, uout)
+               !ierr = cudaGetLastError()
+               !ierra = cudaDeviceSynchronize()
+               !if (ierr /= cudaSuccess) write(*,*) "Sync kernel error: ", cudaGetErrorString(ierr)
+               !if (ierra /= cudaSuccess) write(*,*) "Async kernel err: ", cudaGetErrorString(ierra)
+      !call DUTwoBodyEwaldRecStd_cuda<<<1,1>>>
+      eikxtm(1:natm,0:ncut) = eikxtm_d(1:natm,0:ncut)
+      eikytm(1:natm,0:ncut) = eikytm_d(1:natm,0:ncut)
+      eikztm(1:natm,0:ncut) = eikztm_d(1:natm,0:ncut)
+      sumeikrtm(1:nkvec,1:4) = sumeikrtm_d(1:nkvec,1:4)
       du%rec = durec_d
+   ierra = cudaDeviceSynchronize()
+   if (ltime) call CpuAdd('stop', 'transfereik', 3, uout)
 #else
        call DUTwoBodyEwaldRecStd
 #endif
@@ -1812,6 +1825,9 @@ end subroutine EwaldSetArray2dTM
 subroutine EwaldUpdateArray
 
    use EnergyModule
+#if defined (_CUDA_)
+   use mol_cuda
+#endif
    implicit none
 
    integer(4) :: ia, ialoc, icut
@@ -1826,6 +1842,15 @@ subroutine EwaldUpdateArray
          end do
       end do
       sumeikr(1:nkvec,1:4) = sumeikrtm(1:nkvec,1:4)
+#if defined (_CUDA_)
+      do ialoc = 1, natm
+            ia = ianatm(ialoc)
+            eikx_d(ia,0:ncut) = eikx(ia,0:ncut)
+            eiky_d(ia,0:ncut) = eiky(ia,0:ncut)
+            eikz_d(ia,0:ncut) = eikz(ia,0:ncut)
+      end do
+      sumeikr_d(1:nkvec,1:4) = sumeikr(1:nkvec,1:4)
+#endif
       if (lewald2dlc) then
          do icut = 0, ncut
             do ialoc = 1, natm
