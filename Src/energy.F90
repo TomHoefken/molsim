@@ -137,6 +137,9 @@ module EnergyModule
 
    integer(4) :: naewald
    real(8),    allocatable :: kfac(:)        ! factor for k-summation
+   integer(4), allocatable :: kfacnx(:)        ! nx for ewald summation on GPU
+   integer(4), allocatable :: kfacny(:)        ! ny for ewald summation on GPU
+   integer(4), allocatable :: kfacnz(:)        ! nz for ewald summation on GPU
    complex(8), allocatable :: eikx(:,:)      ! exp(ikx)
    complex(8), allocatable :: eiky(:,:)      ! exp(iky)
    complex(8), allocatable :: eikz(:,:)      ! exp(ikz)
@@ -905,6 +908,9 @@ end subroutine UTwoBodyP
 subroutine UEwald
 
    use EnergyModule
+#if defined (_CUDA_)
+   use CUDAMOdule
+#endif
    implicit none
 
    character(40), parameter :: txroutine ='UEwald'
@@ -1097,6 +1103,12 @@ subroutine UEwaldRecStd
 
 #endif
 
+#if defined (_CUDA_)
+          eikx_d = eikx
+          eiky_d = eiky
+          eikz_d = eikz
+          sumeikr_d = sumeikr
+#endif
    if (ltime) call CpuAdd('stop', txroutine, 3, uout)
 
 end subroutine UEwaldRecStd
@@ -6719,6 +6731,7 @@ subroutine EwaldSetup
       if(allocated(eikraux)) deallocate(eikraux)
 
       allocate(kfac(nkvec), stat = ierr)
+      allocate(kfacnx(nkvec),kfacny(nkvec),kfacnz(nkvec))
       kfac = 0.0E+00
       allocate(eikx(naewald,0:ncut),eiky(naewald,0:ncut), eikz(naewald,0:ncut), stat = ierr)
       eikx = cmplx(Zero,Zero)
@@ -6784,6 +6797,9 @@ subroutine EwaldSetup
                if (nx == 0) facx = Half
                k2 = (nx*TwoPiBoxi(1))**2+(ny*TwoPiBoxi(2))**2+(nz*TwoPiBoxi(3))**2
                kfac(nkvec) = fac0*facz*facy*facx*exp(-k2/(Four*ualpha**2))/k2
+               kfacnx(nkvec) = nx
+               kfacny(nkvec) = ny
+               kfacnz(nkvec) = nz
             end do
          end do
       end do
@@ -6791,17 +6807,24 @@ subroutine EwaldSetup
           allocate(eikxtm_d(naewald,0:ncut),eikytm_d(naewald,0:ncut), eikztm_d(naewald,0:ncut), stat = ierr)
           allocate(eikx_d(naewald,0:ncut),eiky_d(naewald,0:ncut), eikz_d(naewald,0:ncut), stat = ierr)
           allocate(eikyzm_d(naewald), eikyzp_d(naewald), stat = ierr)
+          allocate(eikyzm2_d(nkvec,naewald), eikyzp2_d(nkvec,naewald), stat = ierr)
           allocate(eikyzmtm_d(naewald), eikyzptm_d(naewald), stat = ierr)
+          allocate(eikyzmtm2_d(nkvec,naewald), eikyzptm2_d(nkvec,naewald), stat = ierr)
           allocate(eikrtm_d(naewald,4), stat = ierr)
           allocate(sumeikr_d(nkvec,4), stat = ierr)
           allocate(sumeikrtm_d(nkvec,4), stat = ierr)
           allocate(kfac_d(nkvec), stat = ierr)
           allocate(rtm_d(3,na_alloc))
           allocate(TwoPiBoxi_d(3))
+          allocate(kfacnx_d(nkvec),kfacny_d(nkvec),kfacnz_d(nkvec))
           TwoPiBoxi_d = TwoPiBoxi
           ncut_d = ncut
           ncut2_d = ncut2
           kfac_d = kfac
+          kfacnx_d = kfacnx
+          kfacny_d = kfacny
+          kfacnz_d = kfacnz
+          nkvec_d = nkvec
 #endif
 
       if (lewald2dlc) then
