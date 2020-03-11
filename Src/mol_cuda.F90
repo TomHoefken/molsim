@@ -160,6 +160,8 @@ module mol_cuda
 
    complex(8), device, allocatable :: eikyzmtm_d(:)    ! exp(-iky)*exp(ikz), trial configuration, temporary use
    complex(8), device, allocatable :: eikyzptm_d(:)    ! exp(+iky)*exp(ikz), trial configuration, temporary use
+   complex(8), device, allocatable :: eikyzmtm2_d(:,:)    ! exp(-iky)*exp(ikz), trial configuration, temporary use
+   complex(8), device, allocatable :: eikyzptm2_d(:,:)    ! exp(+iky)*exp(ikz), trial configuration, temporary use
    complex(8), device, allocatable :: eikrtm_d(:,:)    ! temporary use
    complex(8), device, allocatable :: sumeikrtm_d(:,:) ! sum(q*exp(sx*ikx)*exp(sx*iky)*exp(ikz), trial configuration (sx,sy) = (-1,-1),(-1,1),(1,-1),(1,1)
 
@@ -169,6 +171,8 @@ module mol_cuda
    complex(8), device, allocatable :: eikz_d(:,:)      ! exp(ikz)
    complex(8), device, allocatable :: eikyzm_d(:)      ! exp(-iky)*exp(ikz), temporary use
    complex(8), device, allocatable :: eikyzp_d(:)      ! exp(+iky)*exp(ikz), temporary use
+   complex(8), device, allocatable :: eikyzm2_d(:,:)      ! exp(-iky)*exp(ikz), temporary use
+   complex(8), device, allocatable :: eikyzp2_d(:,:)      ! exp(+iky)*exp(ikz), temporary use
    complex(8), device, allocatable :: eikr_d(:,:)      ! temporary use
    complex(8), device, allocatable :: sumeikr_d(:,:)   ! sum(q*exp(sx*ikx)*exp(sy*iky)*exp(ikz)) (sx,sy) = (-1,-1),(-1,1),(1,-1),(1,1)
    complex(8), device, allocatable :: sumeikrd_d(:,:)  ! as sumeikr but also includes dipoles

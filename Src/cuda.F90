@@ -74,6 +74,13 @@ module CUDAModule
       !flag for default MCPass
       logical :: lmcpass = .true.
 
+      ! Ewald
+      
+      integer(4), device, allocatable :: kfacnx_d(:)        ! nx for ewald summation on GPU
+      integer(4), device, allocatable :: kfacny_d(:)        ! ny for ewald summation on GPU
+      integer(4), device, allocatable :: kfacnz_d(:)        ! nz for ewald summation on GPU
+      integer(4), device :: nkvec_d
+
 
       contains
 
