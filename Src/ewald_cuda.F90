@@ -89,7 +89,7 @@ attributes(global) subroutine DUTwoBodyEwaldRecStd_cuda_par
    !character(40), parameter :: txroutine ='UEwaldRecStd'
    integer(4) :: kn, nx, ny, nz!, ia, ialoc, id_int
    integer(4),shared :: ia, ialoc, id_int
-   real(8),shared :: term(1024), termnew(1024), termold(1024)
+   real(8),shared :: term(256), termnew(256), termold(256)
 
 !   if (ltime) call CpuAdd('start', txroutine, 3, uout)
    kn = ((blockIDx%x-1) * blocksize + threadIDx%x)
@@ -136,28 +136,6 @@ attributes(global) subroutine DUTwoBodyEwaldRecStd_cuda_par
             term(kn)    = kfac_d(kn)*(termnew(kn) - termold(kn))
       end if
       termold(kn) = AtomicAdd(durec_d,term(kn))
-!      if (kn <= 512) term(kn) = term(kn) + term(kn+512)
-!      call syncthreads
-!      if (kn <= 256) term(kn) = term(kn) + term(kn+256)
-!      call syncthreads
-!      if (kn <= 128) term(kn) = term(kn) + term(kn+128)
-!      call syncthreads
-!      if (kn <= 64) term(kn) = term(kn) + term(kn+64)
-!      call syncthreads
-!      if (kn <= 32) term(kn) = term(kn) + term(kn+32)
-!      call syncthreads
-!      if (kn <= 16) term(kn) = term(kn) + term(kn+16)
-!      call syncthreads
-!      if (kn <= 8) term(kn) = term(kn) + term(kn+8)
-!      call syncthreads
-!      if (kn <= 4) term(kn) = term(kn) + term(kn+4)
-!      call syncthreads
-!      if (kn <= 2) term(kn) = term(kn) + term(kn+2)
-!      call syncthreads
-!      if (kn <= 1) term(kn) = term(kn) + term(kn+1)
-!      if (kn <= 1) durec_d = term(kn)
-!   !print *, kvecmyid(1), kvecmyid(2), kvecoffmyid
-   !print *, ncut, ikvec2, kn
 
 !   if (ltime) call CpuAdd('stop', txroutine, 3, uout)
 
