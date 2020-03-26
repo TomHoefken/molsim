@@ -206,6 +206,11 @@ end if
    if (ltrace) call WriteTrace(4, trim(txroutine)//'_after_Pack', iSimulationStep)
 #endif
 
+#if defined (_CUDA_)
+      du%twob(0) = sum(du%twob(1:nptpt))
+      du%tot = du%tot + du%twob(0)
+#endif
+
 !  call TestDUTotal
 
    if (ltime) call CpuAdd('stop', txroutine, 1, uout)
@@ -256,6 +261,9 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
 
    character(40), parameter :: txroutine ='DUTwoBody'
    integer(4) :: jp
+#if defined (_CUDA_)
+   integer(4) :: istat
+#endif
    external utwobodynew
    external twobodyold
 
@@ -274,12 +282,14 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
    if (.not.lhsoverlap) then                     ! check hard-core overlap
 
 #if defined (_CUDA_)
-      du%twob(0:nptpt) = utwobnew_d(0:nptpt)
-      du%twob(0) = sum(du%twob(1:nptpt))
+      !du%twob(0:nptpt) = utwobnew_d(0:nptpt)
+      !du%twob(0) = sum(du%twob(1:nptpt))
+      istat = cudaMemcpyAsync(du%twob(1:nptpt),utwobnew_d(1:nptpt),nptpt,cudaMemcpyDeviceToHost,stream3)
 #else
       call twobodyold                               ! calculate old two-body potential energy
-#endif
       du%tot = du%tot + du%twob(0)                ! update
+#endif
+      !du%tot = du%tot + du%twob(0)                ! update
    end if
 
 
@@ -1267,7 +1277,7 @@ subroutine DUTwoBodyEwald
 ! ... calculate
 
    if (txewaldrec == 'std') then
-#if defined (_CUDA_)
+#if defined (_CUDAEWALD_)
    ierra = cudaDeviceSynchronize()
    if (ltime) call CpuAdd('start', 'transfernatm', 3, uout)
       rtm_d(1:3,1:natm) = rtm(1:3,1:natm)
@@ -1279,7 +1289,8 @@ subroutine DUTwoBodyEwald
    ierra = cudaDeviceSynchronize()
    if (ltime) call CpuAdd('stop', 'transfernatm', 3, uout)
    if (ltime) call CpuAdd('start', 'duewaldr', 3, uout)
-      call DUTwoBodyEwaldRecStd_cuda_par<<<1,1024>>>
+      call DUTwoBodyEwaldRecStd_cuda_par<<<1,256>>>
+      !call DUTwoBodyEwaldRecStd_cuda<<<1,1>>>
    ierra = cudaDeviceSynchronize()
    if (ltime) call CpuAdd('stop', 'duewaldr', 3, uout)
    if (ltime) call CpuAdd('start', 'transfereik', 3, uout)
@@ -1287,7 +1298,6 @@ subroutine DUTwoBodyEwald
                !ierra = cudaDeviceSynchronize()
                !if (ierr /= cudaSuccess) write(*,*) "Sync kernel error: ", cudaGetErrorString(ierr)
                !if (ierra /= cudaSuccess) write(*,*) "Async kernel err: ", cudaGetErrorString(ierra)
-      !call DUTwoBodyEwaldRecStd_cuda<<<1,1>>>
       eikxtm(1:natm,0:ncut) = eikxtm_d(1:natm,0:ncut)
       eikytm(1:natm,0:ncut) = eikytm_d(1:natm,0:ncut)
       eikztm(1:natm,0:ncut) = eikztm_d(1:natm,0:ncut)
@@ -1298,7 +1308,7 @@ subroutine DUTwoBodyEwald
 #else
        call DUTwoBodyEwaldRecStd
 #endif
-      print *, du%rec
+      !print *, du%rec
        if (lewald2dlc) call DUTwoBodyEwaldRec2dlc
    else if (txewaldrec == 'spm') then
        call DUTwoBodyEwaldRecSPM
@@ -1825,7 +1835,7 @@ end subroutine EwaldSetArray2dTM
 subroutine EwaldUpdateArray
 
    use EnergyModule
-#if defined (_CUDA_)
+#if defined (_CUDAEWALD_)
    use mol_cuda
 #endif
    implicit none
@@ -1842,7 +1852,7 @@ subroutine EwaldUpdateArray
          end do
       end do
       sumeikr(1:nkvec,1:4) = sumeikrtm(1:nkvec,1:4)
-#if defined (_CUDA_)
+#if defined (_CUDAEWALD_)
       do ialoc = 1, natm
             ia = ianatm(ialoc)
             eikx_d(ia,0:ncut) = eikx(ia,0:ncut)
