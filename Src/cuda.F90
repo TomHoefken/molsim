@@ -31,17 +31,20 @@ module CUDAModule
       integer(4), allocatable :: arrevent(:,:,:)
       real(fp_kind), constant   :: One_d = 1.0d0
       real(fp_kind), constant   :: Zero_d = 0.0d0
-      logical  :: lboxoverlap = .false.! =.true. if box overlap
+      !logical  :: lboxoverlap = .false.! =.true. if box overlap
       !logical  :: lhsoverlap  = .false.! =.true. if hard-core overlap
-      logical  :: lhepoverlap = .false.! =.true. if hard-external-potential overlap
-      real(8)  :: weight      ! nonenergetic weight
+      !logical  :: lhepoverlap = .false.! =.true. if hard-external-potential overlap
+      !real(8)  :: weight      ! nonenergetic weight
     !  real(8),device, allocatable  :: deltaEn(:)
       !real(8)                 :: utot
       !real(8), device         :: utot_d
       integer(4), device :: blocksize = 256
       integer(4)         :: blocksize_h = 256
+      integer(4)         :: numblocks1
+      integer(4)         :: numblocks2
+      integer(4)         :: isharedmem
       integer(4), device             :: lock = 0
-      integer(4), device             :: istat
+      !integer(4), device             :: istat
       integer(4), device             :: goal = 5
       integer(4) :: iloops
       integer(4), device :: iloops_d
@@ -81,6 +84,14 @@ module CUDAModule
       integer(4), device, allocatable :: kfacnz_d(:)        ! nz for ewald summation on GPU
       integer(4), device :: nkvec_d
 
+      !streams
+
+     integer(kind=cuda_stream_kind) :: stream1
+     integer(kind=cuda_stream_kind) :: stream2
+     integer(kind=cuda_stream_kind) :: stream3
+     integer(kind=cuda_stream_kind) :: stream4
+     integer(kind=cuda_stream_kind) :: stream5
+     integer(kind=cuda_stream_kind) :: stream6
 
       contains
 
@@ -123,6 +134,7 @@ module CUDAModule
             istat = cudaDeviceSynchronize()
             call CalcLoopShifts
             istat = cudaDeviceSynchronize()
+            call CalcNumblocks
          case (IBeforeSimulation)
 
             utot_d = u%tot
@@ -155,9 +167,12 @@ module CUDAModule
             call CalcNewPositions<<<iblock1,256>>>
             call MCPass_cuda<<<iblock2,256,isharedmem_mcpass>>>
             ro = ro_d
-            ro_aux = ro
-            call ConvertCoordinates<<<iblock1,256>>>
-            ierra = cudaDeviceSynchronize()
+            !if (lweakcharge) then
+               ro_aux = ro
+               call ConvertCoordinates<<<iblock1,256>>>
+               ierra = cudaDeviceSynchronize()
+               ro = ro_d
+            !end if
             call MCCudaUpdate
             lmcpass = .false.
          else
@@ -176,10 +191,12 @@ module CUDAModule
          u%twob(0) = u%twob(0) + dutwo_d
          u%bond = u%bond + dubond_d
          u%crosslink = u%crosslink + duclink_d
-         ro = ro_aux
+         !if (lweakcharge) then
+            ro = ro_aux
+            laz = laz_aux_d
+            az = az_d
+         !end if
          r = ro
-         laz = laz_aux_d
-         az = az_d
          !do ip = 1, np
          !   if (laz(ip)) then
          !      az(ip) = zat(iatan(ip))
@@ -189,7 +206,6 @@ module CUDAModule
          !end do
 
       end subroutine MCCudaUpdate
-
          !! subroutine MCPass
          !! main routine in mc step
          !! contains
@@ -245,7 +261,8 @@ module CUDAModule
                   if (ierra /= cudaSuccess) write(*,*) "Async kernel err: ", cudaGetErrorString(ierra)
                end do
                   ierra = cudaDeviceSynchronize()
-               call TransferToAux<<<iblock1,256>>>
+               !if (lweakcharge) call TransferToAux<<<iblock1,256>>>
+                call TransferToAux<<<iblock1,256>>>
                   ierra = cudaDeviceSynchronize()
                if (lweakcharge) call GetCharge<<<iblock1,256>>>
                   ierra = cudaDeviceSynchronize()
@@ -543,6 +560,8 @@ module CUDAModule
          real(fp_kind)   :: dy
          real(fp_kind)   :: dz
          real(fp_kind), shared   :: rsumrad_s(16,16)
+         real(fp_kind), shared   :: iptpt_s(16,16)
+         real(fp_kind), shared   :: ucoff_s(16)
          integer(4) :: ibuf
          logical, intent(inout)   :: lhsoverlap(np_d)
          integer(4) :: npt_s
@@ -588,6 +607,8 @@ module CUDAModule
                   if ( id_int <= npt_s) then
                      do i=1, npt_s
                         rsumrad_s(id_int,i) = rsumrad(id_int,i)
+                        iptpt_s(id_int,i) = iptpt_d(id_int,i)
+                        ucoff_s(iptpt_d(id_int,i)) = ucoff_d(iptpt_d(id_int,i))
                      end do
                   end if
                end if
@@ -616,9 +637,10 @@ module CUDAModule
                         if (rdist < rsumrad_s(iptip_s,iptjp_s(i))) then
                            lhsoverlap(id) = .true.
                         end if
-                        !call calcUTabplus(id,jp,rdist,usum)
                         call CallcalcUTabnew(id,jp,rdist,usum)
+                        !usum = ucoff_s(iptpt_s(iptip_s,iptjp_s(i)))/sqrt(rdist)
                         Etwo_d(id) = Etwo_d(id) + usum
+
 
                      !old energy
                         dx = rojx(i) - rox(id_int)
@@ -1281,17 +1303,26 @@ subroutine startUTwoBodyAAll(lhsoverlap)
    logical, intent(inout) :: lhsoverlap
    integer(4) :: numblocks
    integer(4) :: sizeofblocks =512
-   integer(4) :: isharedmem
+   !integer(4) :: isharedmem
+   integer(4) :: istat
 
-
+! TODO: set flags for lcharge and lweakcharge
+! TODO: improve data transfers; perform asynchronous transfers
            call TransferDUTotalVarToDevice
-           numblocks = floor(Real((nptm*np)/sizeofblocks)) + 1
-           lhsoverlap = .false.
-           isharedmem = 2*sizeofblocks*fp_kind + sizeofblocks*4 + threadssum*(nptpt+1)*fp_kind
-           lhsoverlap_d = .false.
+           if (nptm == 1) then
+              numblocks = numblocks1
+           else if (nptm == 2) then
+              numblocks = numblocks2
+           else
+              numblocks = floor(Real((nptm*np)/sizeofblocks)) + 1
+           end if
+           !lhsoverlap = .false.
+           !isharedmem = 2*sizeofblocks*fp_kind + sizeofblocks*4 + threadssum*(nptpt+1)*fp_kind
+           !lhsoverlap_d = .false.
 
            call UTwoBodyAAll<<<numblocks,sizeofblocks,isharedmem>>>(lhsoverlap_d)                ! calculate new two-body potential energy
-           lhsoverlap = lhsoverlap_d
+           !lhsoverlap = lhsoverlap_d
+           istat = cudaMemcpyAsync(lhsoverlap,lhsoverlap_d,4,cudaMemcpyDeviceToHost,stream2)
 end subroutine startUTwoBodyAAll
 
 attributes(global) subroutine UTwoBodyAAll(lhsoverlap)
@@ -1340,21 +1371,24 @@ attributes(global) subroutine UTwoBodyAAll(lhsoverlap)
              else
                 if (ip < jp) then
                   do jploc = 1, nptm_d
-                     dx = rotm_d(1,iploc)-rotm_d(1,jploc)
-                     dy = rotm_d(2,iploc)-rotm_d(2,jploc)
-                     dz = rotm_d(3,iploc)-rotm_d(3,jploc)
+                     if (jp == ipnptm_d(jploc)) then
+                        dx = rotm_d(1,iploc)-rotm_d(1,jploc)
+                        dy = rotm_d(2,iploc)-rotm_d(2,jploc)
+                        dz = rotm_d(3,iploc)-rotm_d(3,jploc)
+                     end if
                    end do
                  else
                       goto 400
                  end if
               end if
               call PBCr2_cuda(dx,dy,dz,r2)
-              if (lellipsoid_d) Then
+              ! EllipsoidOverlap and SuperballOverlap currently not supported
+              !if (lellipsoid_d) Then
               ! if (EllipsoidOverlap(r2,[dx,dy,dz],oritm(1,1,iploc),ori(1,1,jp),radellipsoid2,aellipsoid)) goto 400
-              end if
-              if (lsuperball_d) Then
+              !end if
+              !if (lsuperball_d) Then
               ! if (SuperballOverlap(r2,[dx,dy,dz],oritm(1,1,iploc),ori(1,1,jp))) goto 400
-              end if
+              !end if
               if (r2 > rcut2_d) then
                 !do not anything
               else if (r2 < r2atat_d(iptjpt))then
@@ -1370,17 +1404,19 @@ attributes(global) subroutine UTwoBodyAAll(lhsoverlap)
                  d = r2-ubuf_d(ibuf)
                  usum1(tidx_int) = ubuf_d(ibuf+1)+d*(ubuf_d(ibuf+2)+d*(ubuf_d(ibuf+3)+ &
                               d*(ubuf_d(ibuf+4)+d*(ubuf_d(ibuf+5)+d*ubuf_d(ibuf+6)))))
+                 !usum1(tidx_int) = ucoff_d(iptjpt)/sqrt(r2)
+                 !usum1(tidx_int) = usum1(tidx_int) + 4*ucoff_d(iptjpt)*((ucoff_d(iptjpt)/r2**6)-(ucoff_d(iptjpt)/r2**3))
               end if
               if (.not. lptm_d(jp)) then
                dx = ro_d(1,ip)-ro_d(1,jp)
                dy = ro_d(2,ip)-ro_d(2,jp)
                dz = ro_d(3,ip)-ro_d(3,jp)
               else if (ip < jp) then
-                do jploc = 1, nptm_d
+                !do jploc = 1, nptm_d
                   dx = ro_d(1,ip)-ro_d(1,jp)
                   dy = ro_d(2,ip)-ro_d(2,jp)
                   dz = ro_d(3,ip)-ro_d(3,jp)
-                end do
+                !end do
               else
                   goto 400
               end if
@@ -1393,9 +1429,9 @@ attributes(global) subroutine UTwoBodyAAll(lhsoverlap)
                end if
                if (r2 > rcut2_d) goto 400
                    !do not anything
-               if (r2 < r2atat_d(iptjpt)) goto 400
+               !if (r2 < r2atat_d(iptjpt)) goto 400
                     ! lhsoverlap = .true.
-               if (r2 < r2umin_d(iptjpt)) goto 400      ! outside lower end
+               !if (r2 < r2umin_d(iptjpt)) goto 400      ! outside lower end
                     ! lhsoverlap = .true.
               ibuf = iubuflow_d(iptjpt)
               do
@@ -1406,6 +1442,9 @@ attributes(global) subroutine UTwoBodyAAll(lhsoverlap)
               usum2(tidx_int) = ubuf_d(ibuf+1)+d*(ubuf_d(ibuf+2)+d*(ubuf_d(ibuf+3)+ &
                            d*(ubuf_d(ibuf+4)+d*(ubuf_d(ibuf+5)+d*ubuf_d(ibuf+6)))))
                         usum1(tidx_int) = usum1(tidx_int) - usum2(tidx_int)
+                 !usum2(tidx_int) = ucoff_d(iptjpt)/sqrt(r2)
+                 !usum2(tidx_int) = usum2(tidx_int) + 4*ucoff_d(iptjpt)*((ucoff_d(iptjpt)/r2**6)-(ucoff_d(iptjpt)/r2**3))
+                 !       usum1(tidx_int) = usum1(tidx_int) - usum2(tidx_int)
         end if
      end if
 
@@ -1443,7 +1482,7 @@ attributes(grid_global) subroutine MCPass_cuda
    type(grid_group) :: gg
    logical :: lhsoverlap
    integer(4) :: ip, iploc, ipt, jploc, jpt, iptjpt, ibuf,jp, i, j, n,m, idecision,iloops_s,ipartloop
-   real(fp_kind) :: beta_s, fac_metro, dured
+   real(fp_kind) :: beta_s, fac_metro, dured, dutot_s
    real(fp_kind)    :: dx, dy, dz, r2new, r2old, d
    integer(4) :: tidx, t, tidx_int, istat
    integer(4),shared :: iptjpt_arr(blockDim%x)
@@ -1456,23 +1495,19 @@ attributes(grid_global) subroutine MCPass_cuda
    beta_s = beta_d
    iloops_s = iloops_d
    ipartloop = blockDim%x*iblock2_d
+   dutot_d = 0.0
 
    do n = 1, np_s
        call syncthreads(gg)
        lhsoverlap_d = .false.
        dubond_d = 0.0
        duclink_d = 0.0
-       utwobnew_d = 0.0
+       dutwob_d = 0.0
        usum_aux1 = 0.0
        call syncthreads(gg)
       do m = 1, iloops_s
          tidx = (blockDim%x * (blockIdx%x - 1)) + ipartloop*(m-1) + threadIdx%x  !global thread index 1 ...
          tidx_int = threadIDx%x
-         !iploc = ceiling(real((tidx-1)/np_s))+1
-         !if (iploc <= nptm_d) then
-         !   ip = ipnptm_d(iploc)
-         !end if
-         !jp = mod(tidx-1,np_s)+1
          jp = tidx
          iptjpt = 0
          iptjpt_arr(tidx_int) = iptjpt
@@ -1575,7 +1610,7 @@ attributes(grid_global) subroutine MCPass_cuda
                      end do
                   end if
                end if
-         end do
+      end do
          !reduction of dutwobody
           call syncthreads
           if (tidx_int == 1) then
@@ -1586,23 +1621,17 @@ attributes(grid_global) subroutine MCPass_cuda
              end do
 
              do i = 1, nptpt_d
-                istat = atomicAdd(utwobnew_d(i),usum_aux1(1,i))
+                istat = atomicAdd(dutwob_d(i),usum_aux1(1,i))
              end do
           end if
-         ! call syncthreads(gg)
-          !if (tidx == np_s) then
-          !   do i = 1, nptpt_d
-          !      istat = atomicAdd(utwobnew_d(0), utwobnew_d(i))
-          !   end do
-          !end if
 
               call syncthreads(gg)
                if (tidx == np_s) then
                      do i = 1, nptpt_d
-                        istat = atomicAdd(utwobnew_d(0), utwobnew_d(i))
+                        istat = atomicAdd(dutwob_d(0), dutwob_d(i))
                      end do
-                     dutot_d = utwobnew_d(0) + dubond_d + duclink_d
-                     dured = beta_s*dutot_d
+                     dutot_s = dutwob_d(0) + dubond_d + duclink_d
+                     dured = beta_s*dutot_s
                      if (lhsoverlap_d == .true.) then
                          idecision = 4   !imchsreject
                      else
@@ -1626,7 +1655,7 @@ attributes(grid_global) subroutine MCPass_cuda
                               ro_d(2,n) = rotm_d(2,n)
                               ro_d(3,n) = rotm_d(3,n)
                               !utot_d = utot_d + E_s
-                              utot_d = utot_d + dutot_d
+                              dutot_d = dutot_d + dutot_s
                         end if
                      end if
                      mcstat_d(iptpn_d(n),idecision) = mcstat_d(iptpn_d(n),idecision) + 1
@@ -1728,7 +1757,9 @@ subroutine AllocateDeviceParams
         allocate(lptm_d(np_alloc))
         allocate(ipnptm_d(np_alloc))
         allocate(dutwob_d(0:nptpt))
-        allocate(utwobnew_d(0:nptpt))
+        allocate(utwobnew_d(nptpt))
+        allocate(utwobnew(nptpt))
+        utwobnew = Zero
         allocate(utwobold_d(0:nptpt))
         allocate(dutwobold(0:nptpt))
         allocate(ucoff_d(natat))
@@ -1891,12 +1922,23 @@ subroutine TransferConstantParams
         iseed_d = -1228
         iseed_trial_d = iseed_trial
         ipGPU_d = ipGPU
-        call TransferCoordinatesToDevice<<<iblock1,256>>>
-                  ierra = cudaDeviceSynchronize()
+        !if (lweakcharge) then
+            call TransferCoordinatesToDevice<<<iblock1,256>>>
+            ierra = cudaDeviceSynchronize()
+        ! end if
         !call TransferToAux<<<iblock1,256>>>
                   ierra = cudaDeviceSynchronize()
         if(lweakcharge_d) laztm_d = laz_d
         !print *, "8"
+
+        ! create Streams
+
+        istat = cudaStreamCreate(stream1)
+        istat = cudaStreamCreate(stream2)
+        istat = cudaStreamCreate(stream3)
+        istat = cudaStreamCreate(stream4)
+        istat = cudaStreamCreate(stream5)
+        istat = cudaStreamCreate(stream6)
 
 end subroutine TransferConstantParams
 
@@ -1906,26 +1948,26 @@ attributes(global) subroutine TransferCoordinatesToDevice
    integer(4) :: id, i, j
 
    id = (blockidx%x-1)*blocksize + threadIDx%x
-   if (id <= np_d ) then
-      ro_d(1,ipGPU_d(id)) = ro_aux(1,id)
-      ro_d(2,ipGPU_d(id)) = ro_aux(2,id)
-      ro_d(3,ipGPU_d(id)) = ro_aux(3,id)
-      if(lweakcharge_d) laz_d(ipGPU_d(id)) = laz_aux_d(id)
-      iptpn_d(ipGPU_d(id)) = iptpn_aux_d(id)
-      iananweakcharge_d(ipGPU_d(id)) = ipGPU_d(iananweakcharge_aux_d(id))
-      ictpn_d(ipGPU_d(id)) = ictpn_aux_d(id)
-      if (lchain_d) then
-         do i = 1, 2
-            bondnn_d(i,ipGPU_d(id)) = ipGPU_d(bondnn_aux_d(i,id))
-         end do
+      if (id <= np_d ) then
+         ro_d(1,ipGPU_d(id)) = ro_aux(1,id)
+         ro_d(2,ipGPU_d(id)) = ro_aux(2,id)
+         ro_d(3,ipGPU_d(id)) = ro_aux(3,id)
+         if(lweakcharge_d) laz_d(ipGPU_d(id)) = laz_aux_d(id)
+         iptpn_d(ipGPU_d(id)) = iptpn_aux_d(id)
+         iananweakcharge_d(ipGPU_d(id)) = ipGPU_d(iananweakcharge_aux_d(id))
+         ictpn_d(ipGPU_d(id)) = ictpn_aux_d(id)
+         if (lchain_d) then
+            do i = 1, 2
+               bondnn_d(i,ipGPU_d(id)) = ipGPU_d(bondnn_aux_d(i,id))
+            end do
+         end if
+         if (lclink_d) then
+            nbondcl_d(ipGPU_d(id)) = nbondcl_aux_d(id)
+            do j = 1, 4
+               bondcl_d(j,ipGPU_d(id)) = ipGPU_d(bondcl_d(j,id))
+            end do
+         end if
       end if
-      if (lclink_d) then
-         nbondcl_d(ipGPU_d(id)) = nbondcl_aux_d(id)
-         do j = 1, 4
-            bondcl_d(j,ipGPU_d(id)) = ipGPU_d(bondcl_d(j,id))
-         end do
-      end if
-   end if
 
 
 end subroutine TransferCoordinatesToDevice
@@ -1987,18 +2029,38 @@ subroutine CalcLoopShifts
 
 end subroutine CalcLoopShifts
 
+subroutine CalcNumblocks
+
+   implicit none
+   integer(4) :: sizeofblocks =512
+
+   numblocks1 = floor(Real((1*np)/sizeofblocks)) + 1
+   numblocks2 = floor(Real((2*np)/sizeofblocks)) + 1
+   isharedmem = 2*sizeofblocks*fp_kind + sizeofblocks*4 + threadssum*(nptpt+1)*fp_kind
+
+
+end subroutine CalcNumblocks
+
 
 subroutine TransferDUTotalVarToDevice
 
         use Molmodule
         implicit none
         integer(4) :: i
+        integer(4) :: istat
 
-        nptm_d = nptm
-        ipnptm_d(1:nptm) = ipnptm(1:nptm)
-        lptm_d = lptm
-        rotm_d(1:3,1:nptm) = rotm(1:3,1:nptm)
-        utwobnew_d(0:nptpt) = Zero
+        istat = cudaMemcpyAsync(utwobnew_d,utwobnew,nptpt,cudaMemcpyHostToDevice,stream5)
+        istat = cudaMemcpyAsync(lhsoverlap_d,.false.,4,cudaMemcpyHostToDevice,stream6)
+        !nptm_d = nptm
+        istat = cudaMemcpyAsync(nptm_d,nptm,4,cudaMemcpyHostToDevice,stream1)
+        !ipnptm_d(1:nptm) = ipnptm(1:nptm)
+        istat = cudaMemcpyAsync(ipnptm_d(1:nptm),ipnptm(1:nptm),4*nptm,cudaMemcpyHostToDevice,stream3)
+        !lptm_d = lptm
+        istat = cudaMemcpyAsync(lptm_d,lptm,4,cudaMemcpyHostToDevice,stream2)
+        !rotm_d(1:3,1:nptm) = rotm(1:3,1:nptm)
+        istat = cudaMemcpy2DAsync(rotm_d,3,rotm,3,3,nptm,cudaMemcpyHostToDevice,stream4)
+        !utwobnew_d(0:nptpt) = Zero
+        !istat =cudaDeviceSynchronize()
 
 end subroutine TransferDUTotalVarToDevice
 
