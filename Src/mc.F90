@@ -764,7 +764,9 @@ subroutine MCDriver(iStage)
    case (iSimulationStep)
 
 #if defined (_CUDA_)
+   if (ltime) call CpuAdd('start', 'MCPass', 0, uout)
       call MCPassCUDA
+   if (ltime) call CpuAdd('stop', 'MCPass', 0, uout)
       if (lmcpass) then
 #endif
       call MCPass(iStage)                         ! MCAver(iSimulationStep) is called in MCPass
@@ -1544,8 +1546,10 @@ subroutine MCPass(iStage)
       iptmove = iptpn(ipmove)
 
 #if defined (_TESTGPU_)
+   if (lweakcharge) then
       ipmove = ipCPU(ipmove)     ! ipCPU
       iptmove = iptpn(ipmove)
+   end if
 #endif
 
 
@@ -1611,6 +1615,9 @@ subroutine SPartMove(iStage, loptsso)
    use MCModule, only: npclnew, npclold, radcl1
    use MCModule, only: lcl1spart, pselectcl1, dtran, curdtranpt
    use MCModule, only: lfixzcoord, lfixxycoord, drot, lshiftzcom
+#if defined (_CUDA_)
+   use CUDAModule
+#endif
 
    implicit none
 
@@ -1629,6 +1636,9 @@ subroutine SPartMove(iStage, loptsso)
    logical  :: lsso
 
    real(8)  :: dtr
+#if defined (_CUDA_)
+   integer(4) :: istat
+#endif
 
    if (ltrace) call WriteTrace(3, txroutine, iStage)
    if (ltime) call CpuAdd('start', txroutine, 1, uout)
@@ -1663,6 +1673,13 @@ subroutine SPartMove(iStage, loptsso)
    ipnptm(iploc) = ipmove
    iptmpn(ipmove) = iploc
    lptm(ipmove)  =.true.
+#if defined (_CUDA_)
+     !istat = cudaMemcpyAsync(utwobnew_d,utwobnew,nptpt,cudaMemcpyHostToDevice,stream5)
+     !istat = cudaMemcpyAsync(lhsoverlap_d,.false.,4,cudaMemcpyHostToDevice,stream6)
+     !istat = cudaMemcpyAsync(nptm_d,nptm,4,cudaMemcpyHostToDevice,stream1)
+     !istat = cudaMemcpyAsync(ipnptm_d(1:nptm),ipnptm(1:nptm),4*nptm,cudaMemcpyHostToDevice,stream3)
+     !istat = cudaMemcpyAsync(lptm_d,lptm,4,cudaMemcpyHostToDevice,stream2)
+#endif
 
 ! ... and then the remaining particles
 
@@ -4548,6 +4565,10 @@ end subroutine ClusterMemberLList
 subroutine GetRandomTrialPos(dtran, iseed, nptm, ipnptm, ro, rotm, drotm)
 
    use Molmodule, only: iseed_trial
+#if defined (_CUDA_)
+   !use CUDAModule, only: stream4, rotm_d
+   !use cudafor
+#endif
    implicit none
    real(8),    intent(in)  :: dtran       ! translational displacement
                                           ! > 0 square region, < 0 spherical region
@@ -4562,6 +4583,9 @@ subroutine GetRandomTrialPos(dtran, iseed, nptm, ipnptm, ro, rotm, drotm)
    integer(4) :: iploc, ip
    real(8) :: dx, dy, dz
    real(8) :: Random, Random4
+#if defined (_CUDA_)
+   integer(4) :: istat
+#endif
 
 ! ... get translational displacement
 #if defined (_TESTGPU_)
@@ -4609,6 +4633,9 @@ subroutine GetRandomTrialPos(dtran, iseed, nptm, ipnptm, ro, rotm, drotm)
       drotm(2,iploc) = dy
       drotm(3,iploc) = dz
    end do
+#if defined (_CUDA_)
+      !istat = cudaMemcpy2DAsync(rotm_d,3,rotm,3,3,nptm,cudaMemcpyHostToDevice,stream4)
+#endif
 
 end subroutine GetRandomTrialPos
 
@@ -5218,7 +5245,7 @@ subroutine Metropolis(lboxoverlap, lhsoverlap, lhepoverlap, weight, dured)
          ievent = imcreject
       end if
    end if
-      print *, "ievent: ", ievent, exp(-dured), rtest
+      !print *, "ievent: ", ievent, exp(-dured), rtest
 !  call TestMetropolis(uout)
 
 contains
@@ -5257,6 +5284,9 @@ subroutine MCUpdate
    implicit none
 
    integer(4) :: ip, iploc
+#if defined (_CUDA_)
+   integer(4) :: istat2
+#endif
 
                                  u%tot            = u%tot            + du%tot
                                  u%twob(0:nptpt)  = u%twob(0:nptpt)  + du%twob(0:nptpt)
@@ -5276,7 +5306,8 @@ subroutine MCUpdate
       ip = ipnptm(iploc)
       ro(1:3,ip) = rotm(1:3,iploc)                             ! position
 #if defined (_CUDA_)
-      ro_d(1:3,ip) = ro(1:3,ip)
+      !ro_d(1:3,ip) = ro(1:3,ip)
+      istat2 = cudaMemcpy2DAsync(ro_d(1:3,ip),3,ro(1:3,ip),3,3,1,cudaMemcpyHostToDevice,stream1)
 #endif
       if (lpolyatom .or. lellipsoid .or. lsuperball .or. lfixedori) ori(1:3,1:3,ip) = oritm(1:3,1:3,iploc)    ! orientation
 !  not sure that lfixedori is needed in the line above Jos
