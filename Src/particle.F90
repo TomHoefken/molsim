@@ -2197,7 +2197,7 @@ subroutine SetObjectParam2
          lcounterion = .false.
       end if
 
-! at first the particles with weak charge
+! at first the particles with weak charge and their counterions
       id = 0
       if (lweakcharge) then
          do ip=1, np

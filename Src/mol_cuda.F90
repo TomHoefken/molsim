@@ -60,6 +60,7 @@ module mol_cuda
    real(fp_kind), device, allocatable    :: dutwob_d(:)
    logical,device       :: lptmdutwob_d             ! flag for calulating dutobdy among moving particles
    real(fp_kind), device,allocatable :: utwobnew_d(:)
+   real(fp_kind),  allocatable :: utwobnew(:)
    real(fp_kind), device,allocatable :: utwobold_d(:)
    real(fp_kind), allocatable :: dutwobold(:)
 
