@@ -226,7 +226,7 @@ ifeq ($(ARCH), PGFORTRAN)
   LINK_SER = $(COMP_SER)
   #OPT_SER  = -O3 -acc -ta=tesla,cc70
   OPT_SER  = -O3 -Mcuda -Mcuda=cc70 -Mpreprocess -DDOUBLE
-  OPT_debug  := -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc -Mpreprocess -DDOUBLE
+  OPT_debug  := -O0 -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc -Mpreprocess -DDOUBLE
 
 OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash #-Mcuda=maxregcount:64
   OPT_normal := $(OPT_format) -O3 -Mcuda=cc70
@@ -245,7 +245,7 @@ OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash #-Mcuda=maxregcount:64
     OPT_SER = $(OPT_normal)
   endif
   ifeq ($(mode),testGPU)
-    OPT_SER = $(OPT_testGPU)
+   OPT_SER = $(OPT_testGPU) #-Mcuda=maxregcount:64
   endif
   ifeq ($(mode),debug)
     OPT_SER = $(OPT_debug)
