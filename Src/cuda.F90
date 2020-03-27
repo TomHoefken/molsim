@@ -77,12 +77,6 @@ module CUDAModule
       !flag for default MCPass
       logical :: lmcpass = .true.
 
-      ! Ewald
-      
-      integer(4), device, allocatable :: kfacnx_d(:)        ! nx for ewald summation on GPU
-      integer(4), device, allocatable :: kfacny_d(:)        ! ny for ewald summation on GPU
-      integer(4), device, allocatable :: kfacnz_d(:)        ! nz for ewald summation on GPU
-      integer(4), device :: nkvec_d
 
       !streams
 
@@ -1512,6 +1506,7 @@ attributes(grid_global) subroutine MCPass_cuda
          iptjpt = 0
          iptjpt_arr(tidx_int) = iptjpt
          usum1(tidx_int) = 0.0
+         usum2(tidx_int) = 0.0
          call syncthreads
 
 
@@ -1631,39 +1626,170 @@ attributes(grid_global) subroutine MCPass_cuda
                         istat = atomicAdd(dutwob_d(0), dutwob_d(i))
                      end do
                      dutot_s = dutwob_d(0) + dubond_d + duclink_d
-                     dured = beta_s*dutot_s
-                     if (lhsoverlap_d == .true.) then
-                         idecision = 4   !imchsreject
-                     else
-                        if (dured > expmax_d) then
-                           idecision = 2 ! energy rejected
-                        else if (dured < -expmax_d) then
-                           idecision = 1   !accepted
-                        else
-                           fac_metro = exp(-dured)
-                           if (fac_metro > One_d) then
-                              idecision = 1 !accepted
-                           else if (fac_metro > Random_dev2(iseed2_d)) then
-                           !else if (fac_metro > pmetro(id)) then
-                              idecision = 1 ! accepted
-                           else
-                              idecision = 2 ! energy rejected
-                           end if
-                        end if
-                        if (idecision == 1) then
-                              ro_d(1,n) = rotm_d(1,n)
-                              ro_d(2,n) = rotm_d(2,n)
-                              ro_d(3,n) = rotm_d(3,n)
-                              !utot_d = utot_d + E_s
-                              dutot_d = dutot_d + dutot_s
-                        end if
-                     end if
-                     mcstat_d(iptpn_d(n),idecision) = mcstat_d(iptpn_d(n),idecision) + 1
+                     call Metropolis_MCPass(dutot_s,beta_s,n)
                end if
               call syncthreads(gg)
    end do
 
 end subroutine MCPass_cuda
+
+attributes(device) subroutine StartCalcUTwob_MCPass(n,jp,usum1,usum2,r2new,r2old,iptjpt)
+
+   implicit none
+   integer(4), intent(inout) :: n
+   integer(4), intent(inout) :: jp
+   integer(4), intent(inout) :: iptjpt
+   real(8), intent(inout) :: usum1
+   real(8), intent(inout) :: usum2
+   real(8), intent(inout) :: r2new
+   real(8), intent(inout) :: r2old
+
+   if (lweakcharge_d) then
+      if (laztm_d(n) .and. laztm_d(jp)) call CalcUTwobnew_MCPass(n,jp,usum1,r2new,iptjpt)
+   else if (lcharge_d) then
+      call CalcUTwobnew_MCPass(n,jp,usum1,r2new,iptjpt)
+   else
+   end if
+   if (lweakcharge_d) then
+      if (laz_d(n) .and. laztm_d(jp)) call CalcUTwobold_MCPass(n,jp,usum1,usum2,r2old,iptjpt)
+   else if (lcharge_d) then
+      call CalcUTwobold_MCPass(n,jp,usum1,usum2,r2old,iptjpt)
+   else
+   end if
+
+end subroutine StartCalcUTwob_MCPass
+
+
+attributes(device) subroutine CalcUTwobnew_MCPass(n,jp,usum1,r2new,iptjpt)
+
+
+   implicit none
+   integer(4), intent(inout) :: n
+   integer(4), intent(inout) :: jp
+   integer(4), intent(inout) :: iptjpt
+   real(8), intent(inout) :: usum1
+   real(8), intent(inout) :: r2new
+   real(8) :: dx,dy,dz,d
+   integer(4) :: ibuf
+
+          dx = rotm_d(1,n)-ro_d(1,jp)
+          dy = rotm_d(2,n)-ro_d(2,jp)
+          dz = rotm_d(3,n)-ro_d(3,jp)
+        call PBCr2_cuda(dx,dy,dz,r2new)
+        !if (lellipsoid_d) Then
+        ! if (EllipsoidOverlap(r2,[dx,dy,dz],oritm(1,1,iploc),ori(1,1,jp),radellipsoid2,aellipsoid)) goto 400
+        !end if
+        !if (lsuperball_d) Then
+        ! if (SuperballOverlap(r2,[dx,dy,dz],oritm(1,1,iploc),ori(1,1,jp))) goto 400
+        !end if
+        if (r2new > rcut2_d) then
+          !do not anything
+        else if (r2new < r2atat_d(iptjpt))then
+            lhsoverlap_d = .true.
+        else if (r2new < r2umin_d(iptjpt))then       ! outside lower end
+            lhsoverlap_d = .true.
+        else
+           ibuf = iubuflow_d(iptjpt)
+           do
+              if (r2new >= ubuf_d(ibuf)) exit
+                 ibuf = ibuf+12
+           end do
+           d = r2new-ubuf_d(ibuf)
+           usum1 = ubuf_d(ibuf+1)+d*(ubuf_d(ibuf+2)+d*(ubuf_d(ibuf+3)+ &
+                        d*(ubuf_d(ibuf+4)+d*(ubuf_d(ibuf+5)+d*ubuf_d(ibuf+6)))))
+        end if
+end subroutine CalcUTwobnew_MCPass
+
+attributes(device) subroutine CalcUTwobold_MCPass(n,jp,usum1,usum2,r2old,iptjpt)
+
+
+   implicit none
+   integer(4), intent(inout) :: n
+   integer(4), intent(inout) :: jp
+   integer(4), intent(inout) :: iptjpt
+   real(8), intent(inout) :: usum1
+   real(8), intent(inout) :: usum2
+   real(8), intent(inout) :: r2old
+   real(8) :: dx,dy,dz,d
+   integer(4) :: ibuf
+   logical :: lskip
+
+                     lskip = .false.
+                     dx = ro_d(1,n)-ro_d(1,jp)
+                     dy = ro_d(2,n)-ro_d(2,jp)
+                     dz = ro_d(3,n)-ro_d(3,jp)
+                     call PBCr2_cuda(dx,dy,dz,r2old)
+                     !if (lellipsoid_d) Then
+                       ! if (EllipsoidOverlap(r2,[dx,dy,dz],oritm(1,1,iploc),ori(1,1,jp),radellipsoid2,aellipsoid)) goto 400
+                     !end if
+                     !if (lsuperball_d) Then
+                       ! if (SuperballOverlap(r2,[dx,dy,dz],oritm(1,1,iploc),ori(1,1,jp))) goto 400
+                     !end if
+                     if (r2old > rcut2_d) lskip = .true.
+                         !do not anything
+                     if (r2old < r2atat_d(iptjpt)) lskip = .true.
+                          ! lhsoverlap = .true.
+                     if (r2old < r2umin_d(iptjpt)) lskip = .true.      ! outside lower end
+                          ! lhsoverlap = .true.
+                     if (.not. lskip) then
+                       ibuf = iubuflow_d(iptjpt)
+                       do
+                          if (r2old >= ubuf_d(ibuf)) exit
+                          ibuf = ibuf+12
+                       end do
+                       d = r2old-ubuf_d(ibuf)
+                       usum2 = ubuf_d(ibuf+1)+d*(ubuf_d(ibuf+2)+d*(ubuf_d(ibuf+3)+ &
+                                    d*(ubuf_d(ibuf+4)+d*(ubuf_d(ibuf+5)+d*ubuf_d(ibuf+6)))))
+                       usum1 = usum1 - usum2
+                    end if
+end subroutine CalcUTwobold_MCPass
+
+attributes(device) subroutine Metropolis_MCPass(dutot,beta,ip)
+
+   implicit none
+   real(fp_kind), intent(in) :: dutot
+   real(fp_kind), intent(in) :: beta
+   integer(4), intent(in)    :: ip
+   real(fp_kind)             :: fac_metro, dured, r2new
+   real(8)                   :: expmax_d = 87.0d0
+   integer(4)                :: idecision
+
+   dured = beta*dutot
+   if (lhsoverlap_d == .true.) then
+       idecision = 4   !imchsreject
+   else
+      if (dured > expmax_d) then
+         idecision = 2 ! energy rejected
+      else if (dured < -expmax_d) then
+         idecision = 1   !accepted
+      else
+         fac_metro = exp(-dured)
+         if (fac_metro > One_d) then
+            idecision = 1 !accepted
+         else if (fac_metro > Random_dev2(iseed2_d)) then
+         !else if (fac_metro > pmetro(id)) then
+            idecision = 1 ! accepted
+         else
+            idecision = 2 ! energy rejected
+         end if
+      end if
+      if (idecision == 1) then
+            ro_d(1,ip) = rotm_d(1,ip)
+            ro_d(2,ip) = rotm_d(2,ip)
+            ro_d(3,ip) = rotm_d(3,ip)
+            !utot_d = utot_d + E_s
+            dutot_d = dutot_d + dutot
+      end if
+   end if
+   mcstat_d(iptpn_d(ip),idecision) = mcstat_d(iptpn_d(ip),idecision) + 1
+
+end subroutine Metropolis_MCPass
+
+attributes(device) subroutine calcDUTwoBody_MCPass
+
+   implicit none
+
+end subroutine calcDUTwoBody_MCPass
 
 
 !************************************************************************
