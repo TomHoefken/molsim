@@ -1278,12 +1278,13 @@ subroutine DUTwoBodyEwald
 
    if (txewaldrec == 'std') then
 #if defined (_CUDAEWALD_)
+!#if defined (_CUDA_)
    ierra = cudaDeviceSynchronize()
    if (ltime) call CpuAdd('start', 'transfernatm', 3, uout)
       rtm_d(1:3,1:natm) = rtm(1:3,1:natm)
       natm_d = natm
       ianatm_d = ianatm
-      durec_d = Zero
+      durec_d = du%rec
       az_d = az
             !ierra = cudaDeviceSynchronize()
    ierra = cudaDeviceSynchronize()
@@ -1835,7 +1836,8 @@ end subroutine EwaldSetArray2dTM
 subroutine EwaldUpdateArray
 
    use EnergyModule
-#if defined (_CUDAEWALD_)
+!#if defined (_CUDAEWALD_)
+#if defined (_CUDA_)
    use mol_cuda
 #endif
    implicit none
@@ -1852,12 +1854,15 @@ subroutine EwaldUpdateArray
          end do
       end do
       sumeikr(1:nkvec,1:4) = sumeikrtm(1:nkvec,1:4)
-#if defined (_CUDAEWALD_)
-      do ialoc = 1, natm
-            ia = ianatm(ialoc)
-            eikx_d(ia,0:ncut) = eikx(ia,0:ncut)
-            eiky_d(ia,0:ncut) = eiky(ia,0:ncut)
-            eikz_d(ia,0:ncut) = eikz(ia,0:ncut)
+!#if defined (_CUDAEWALD_)
+#if defined (_CUDA_)
+      do icut = 0, ncut
+         do ialoc = 1, natm
+               ia = ianatm(ialoc)
+               eikx_d(ia,icut) = eikx(ia,icut)
+               eiky_d(ia,icut) = eiky(ia,icut)
+               eikz_d(ia,icut) = eikz(ia,icut)
+         end do
       end do
       sumeikr_d(1:nkvec,1:4) = sumeikr(1:nkvec,1:4)
 #endif
