@@ -285,6 +285,7 @@ subroutine DUTwoBody(lhsoverlap, utwobodynew, twobodyold)
       !du%twob(0:nptpt) = utwobnew_d(0:nptpt)
       !du%twob(0) = sum(du%twob(1:nptpt))
       istat = cudaMemcpyAsync(du%twob(1:nptpt),utwobnew_d(1:nptpt),nptpt,cudaMemcpyDeviceToHost,stream3)
+      istat = cudaDeviceSynchronize()
 #else
       call twobodyold                               ! calculate old two-body potential energy
       du%tot = du%tot + du%twob(0)                ! update
@@ -1854,8 +1855,8 @@ subroutine EwaldUpdateArray
          end do
       end do
       sumeikr(1:nkvec,1:4) = sumeikrtm(1:nkvec,1:4)
-!#if defined (_CUDAEWALD_)
-#if defined (_CUDA_)
+#if defined (_CUDAEWALD_)
+!#if defined (_CUDA_)
       do icut = 0, ncut
          do ialoc = 1, natm
                ia = ianatm(ialoc)
