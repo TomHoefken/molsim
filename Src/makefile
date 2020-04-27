@@ -226,7 +226,7 @@ ifeq ($(ARCH), PGFORTRAN)
   LINK_SER = $(COMP_SER)
   #OPT_SER  = -O3 -acc -ta=tesla,cc70
   OPT_SER  = -O3 -Mcuda -Mcuda=cc70 -Mpreprocess -DDOUBLE
-  OPT_debug  := -O0 -g -Mcuda=debug -Mcuda=llvm -Mcuda=rdc -Mpreprocess -DDOUBLE
+  OPT_debug  := -O0  -Mcuda=debug -Mcuda=llvm -Mcuda=rdc -Mpreprocess -DDOUBLE
 
 OPT_format := -Mcuda -Mpreprocess -DDOUBLE -Mbackslash #-Mcuda=maxregcount:64
   OPT_normal := $(OPT_format) -O3 -Mcuda=cc70
@@ -497,7 +497,7 @@ celllist_par.o:   mol_par.o
 coordinate.o:     mol.o mollib.o
 coordinate_par.o: mol_par.o mollib_par.o
 ifeq ($(ARCH), PGFORTRAN)
-cuda.o:           mol.o mol_cuda.o precision_m.o
+cuda.o:           mol.o mol_cuda.o precision_m.o ewald_cuda.o energy.o
 endif
 ifeq ($(ARCH), PGFORTRAN)
 denergy.o:        mol.o energy.o mollib.o celllist.o cuda.o ewald_cuda.o
@@ -510,13 +510,13 @@ dump_par.o:       mol_par.o
 dynamic.o:        mol.o statistics.o mollib.o
 dynamic_par.o:    mol_par.o statistics_par.o mollib_par.o
 ifeq ($(ARCH), PGFORTRAN)
-energy.o:         mol.o mollib.o celllist.o cuda.o
+energy.o:         mol.o mollib.o celllist.o mol_cuda.o
 else
 energy.o:         mol.o mollib.o celllist.o
 endif
 energy_par.o:     mol_par.o mollib_par.o celllist_par.o
 ifeq ($(ARCH), PGFORTRAN)
-ewald_cuda.o:     mol.o cuda.o
+ewald_cuda.o:     mol.o energy.o
 endif
 group.o:          mol.o
 group_par.o:      mol_par.o
