@@ -1740,6 +1740,11 @@ subroutine SPartMove(iStage, loptsso)
    if (lweakcharge) then
       laztm(1:natm) = laz(ianatm(1:natm))
       aztm(1:natm)  = az(ianatm(1:natm))
+#if defined (_CUDA_)
+      !istat = cudaMemcpyAsync(laztm_d(1:natm),laztm(1:natm),4*natm,cudaMemcpyHostToDevice,stream2)
+      laztm_d(1:natm) = laztm(1:natm)
+      !istat = cudaMemcpyAsync(aztm_d(1:natm),aztm(1:natm),8*natm,cudaMemcpyHostToDevice,stream3)
+#endif
    end if
 
    if (itestmc == 2) call TestMCMove(uout)
@@ -3721,6 +3726,9 @@ end subroutine NPartChange
 subroutine ChargeChange(iStage)
 
    use MCModule
+#if defined (_CUDA_)
+   use CUDAModule
+#endif
    implicit none
 
    integer(4), intent(in) :: iStage
@@ -3729,6 +3737,9 @@ subroutine ChargeChange(iStage)
    logical    :: lboxoverlap, lhsoverlap, lhepoverlap
    real(8) ::  random,  weight, xsign
    integer(4) :: ip, ipt, ia, ialoc, ianmove, iatmove
+#if defined (_CUDA_)
+   integer(4) :: istat
+#endif
 
    if (ltrace) call WriteTrace(3, txroutine, iStage)
 
@@ -3780,6 +3791,11 @@ subroutine ChargeChange(iStage)
    elsewhere
       aztm(1:natm) = Zero
    end where
+#if defined (_CUDA_)
+      !istat = cudaMemcpyAsync(laztm_d(1:natm),laztm(1:natm),4*natm,cudaMemcpyHostToDevice,stream2)
+      laztm_d(1:natm) = laztm(1:natm)
+      !istat = cudaMemcpyAsync(aztm_d(1:natm),aztm(1:natm),8*natm,cudaMemcpyHostToDevice,stream3)
+#endif
 
    if (itest == 90) then
       call writehead(3, txroutine, uout)
@@ -3820,6 +3836,12 @@ subroutine ChargeChange(iStage)
       do ialoc = 1, natm
          laz(ianatm(ialoc)) = laztm(ialoc) ! update charge status
          az(ianatm(ialoc))  = aztm(ialoc)  ! update atom charge
+#if defined (_CUDA_)
+      !istat = cudaMemcpyAsync(laz_d(ianatm(ialoc)),laz(ianatm(ialoc)),1,cudaMemcpyHostToDevice,stream2)
+      laz_d(ianatm(ialoc)) = laz(ianatm(ialoc))
+      az_d(ianatm(ialoc)) = az(ianatm(ialoc))
+      !istat = cudaMemcpyAsync(az_d(ianatm(ialoc)),az(ianatm(ialoc)),8*natm,cudaMemcpyHostToDevice,stream3)
+#endif
       end do
    end if
 
