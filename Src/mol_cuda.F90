@@ -8,6 +8,7 @@ module mol_cuda
 
    real(fp_kind),    constant :: ThreeHalf_d = 1.5
    real(fp_kind),    constant :: SqTwo_d       = sqrt(Two)
+   real(fp_kind),device       :: EpsiFourPi_d
    logical,device       :: lbcbox_d                 ! box-like cell (rätblock)
    logical,device       :: lbcrd_d                  ! rhombic dodecahedral cell
    logical,device       :: lbcto_d                  ! truncated octahedral cell
@@ -103,6 +104,9 @@ module mol_cuda
    logical :: lseq
    logical :: lcuda_mcpass
    logical,device :: ltest_cuda
+   logical, device :: lewald_d
+   !
+   integer(4), device, allocatable :: ipGPU_d(:)
 
 
    real(8) :: u_aux
@@ -178,7 +182,15 @@ module mol_cuda
    complex(8), device, allocatable :: sumeikr_d(:,:)   ! sum(q*exp(sx*ikx)*exp(sy*iky)*exp(ikz)) (sx,sy) = (-1,-1),(-1,1),(1,-1),(1,1)
    complex(8), device, allocatable :: sumeikrd_d(:,:)  ! as sumeikr but also includes dipoles
 
+   complex(8), device, allocatable :: eikx_aux(:,:)      ! exp(ikx)
+   complex(8), device, allocatable :: eiky_aux(:,:)      ! exp(iky)
+   complex(8), device, allocatable :: eikz_aux(:,:)      ! exp(ikz)
+   complex(8), device, allocatable :: sumeikr_aux(:,:) ! sum(q*exp(sx*ikx)*exp(sx*iky)*exp(ikz), trial configuration (sx,sy) = (-1,-1),(-1,1),(1,-1),(1,1)
 
+   integer(4), device, allocatable :: kfacnx_d(:)        ! nx for ewald summation on GPU
+   integer(4), device, allocatable :: kfacny_d(:)        ! ny for ewald summation on GPU
+   integer(4), device, allocatable :: kfacnz_d(:)        ! nz for ewald summation on GPU
+   integer(4), device :: nkvec_d
 
 
    real(fp_kind), device, allocatable    :: rtm_d(:,:)
