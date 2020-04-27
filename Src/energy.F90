@@ -909,7 +909,7 @@ subroutine UEwald
 
    use EnergyModule
 #if defined (_CUDA_)
-   use CUDAMOdule
+   use mol_cuda
 #endif
    implicit none
 
@@ -1107,6 +1107,9 @@ subroutine UEwaldRecStd
           eikx_d = eikx
           eiky_d = eiky
           eikz_d = eikz
+          eikx_aux = eikx
+          eiky_aux = eiky
+          eikz_aux = eikz
           sumeikr_d = sumeikr
 #endif
    if (ltime) call CpuAdd('stop', txroutine, 3, uout)
@@ -6618,7 +6621,7 @@ subroutine EwaldSetup
    use EnergyModule
 # endif
 #if defined (_CUDA_)
-   use CUDAModule
+   use mol_cuda
 #endif
    implicit none
 
@@ -6806,6 +6809,7 @@ subroutine EwaldSetup
 #if defined (_CUDA_)
           allocate(eikxtm_d(naewald,0:ncut),eikytm_d(naewald,0:ncut), eikztm_d(naewald,0:ncut), stat = ierr)
           allocate(eikx_d(naewald,0:ncut),eiky_d(naewald,0:ncut), eikz_d(naewald,0:ncut), stat = ierr)
+          allocate(eikx_aux(naewald,0:ncut),eiky_aux(naewald,0:ncut), eikz_aux(naewald,0:ncut), stat = ierr)
           allocate(eikyzm_d(naewald), eikyzp_d(naewald), stat = ierr)
           allocate(eikyzm2_d(nkvec,naewald), eikyzp2_d(nkvec,naewald), stat = ierr)
           allocate(eikyzmtm_d(naewald), eikyzptm_d(naewald), stat = ierr)
