@@ -497,9 +497,9 @@ module CUDAModule
                else !if (pmove(id) < pcharge_d(iptpn_d(id))) then
                   ispartmove_d(id) = 2
                   laztm_d(id) = .not. laz_d(id)
-                  rotm_d(1,ip) = ro_d(1,ip)
-                  rotm_d(2,ip) = ro_d(2,ip)
-                  rotm_d(3,ip) = ro_d(3,ip)
+                  rotm_d(1,id) = ro_d(1,id)
+                  rotm_d(2,id) = ro_d(2,id)
+                  rotm_d(3,id) = ro_d(3,id)
                   if (iananweakcharge_d(id) /= 0) laztm_d(iananweakcharge_d(id)) = .not. laz_d(id)
                endif
             end if
@@ -2364,7 +2364,7 @@ attributes(global) subroutine TransferCoordinatesToDevice
          if (lclink_d) then
             nbondcl_d(ipGPU_d(id)) = nbondcl_aux_d(id)
             do j = 1, 4
-               bondcl_d(j,ipGPU_d(id)) = ipGPU_d(bondcl_d(j,id))
+               bondcl_d(j,ipGPU_d(id)) = ipGPU_d(bondcl_aux_d(j,id))
             end do
          end if
       if (lewald_d) call TransferEwaldtoDevice(id)
